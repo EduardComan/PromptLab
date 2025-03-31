@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: prompt-lab-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: prompt_management_db
+    volumes:
+      - ./docker/prompt-lab-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
