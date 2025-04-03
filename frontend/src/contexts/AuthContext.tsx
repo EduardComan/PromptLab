@@ -7,6 +7,7 @@ interface User {
   id: string;
   username: string;
   email: string;
+  full_name?: string;
   bio?: string;
   profile_image_id?: string;
   is_active: boolean;
@@ -20,7 +21,7 @@ interface AuthContextType {
   error: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string, bio?: string) => Promise<void>;
+  register: (username: string, email: string, password: string, full_name?: string, bio?: string) => Promise<void>;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
 }
@@ -99,10 +100,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Register function
-  const register = async (username: string, email: string, password: string, bio?: string) => {
+  const register = async (username: string, email: string, password: string, full_name?: string, bio?: string) => {
     setError(null);
     try {
-      const response = await axios.post('/accounts/register', { username, email, password, bio });
+      const response = await axios.post('/accounts/register', { username, email, password, full_name, bio });
       const { token: newToken, user: userData } = response.data;
       
       localStorage.setItem('token', newToken);

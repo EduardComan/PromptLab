@@ -1,0 +1,35 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="250" cy="250" r="180" fill="#F4F9F4" opacity="0.6"/>
+  
+  <!-- Person figure -->
+  <ellipse cx="250" cy="310" rx="100" ry="20" fill="#E0E0E0" opacity="0.5"/>
+  
+  <!-- Body -->
+  <path d="M250 260C250 260 230 220 230 180C230 140 240 140 250 140C260 140 270 140 270 180C270 220 250 260 250 260Z" fill="#74C69D"/>
+  
+  <!-- Head -->
+  <circle cx="250" cy="120" r="30" fill="#333333"/>
+  
+  <!-- Arms -->
+  <path d="M180 200C180 200 210 220 230 220" stroke="#333333" stroke-width="8" stroke-linecap="round"/>
+  <path d="M320 200C320 200 290 220 270 220" stroke="#333333" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Legs crossed -->
+  <path d="M200 280C200 280 220 260 250 260C280 260 300 280 300 280" stroke="#333333" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Heart on shirt -->
+  <path d="M240 190C240 190 250 200 260 190C270 180 260 170 250 180C240 170 230 180 240 190Z" fill="white"/>
+  
+  <!-- Floating bubbles -->
+  <circle cx="180" cy="120" r="15" fill="#74C69D" opacity="0.7"/>
+  <circle cx="320" cy="150" r="10" fill="#74C69D" opacity="0.7"/>
+  <circle cx="150" cy="220" r="12" fill="#74C69D" opacity="0.7"/>
+  <circle cx="350" cy="220" r="8" fill="#74C69D" opacity="0.7"/>
+  
+  <!-- Connection lines -->
+  <path d="M180 120C180 120 200 100 220 110" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M320 150C320 150 300 130 280 140" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M150 220C150 220 170 200 190 210" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M350 220C350 220 330 200 310 210" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+</svg> 

@@ -18,7 +18,12 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Alert
+  Alert,
+  Link,
+  Stack,
+  IconButton,
+  Tooltip,
+  styled
 } from '@mui/material';
 import { 
   Person as PersonIcon, 
@@ -26,17 +31,55 @@ import {
   Star as StarIcon,
   People as PeopleIcon,
   Edit as EditIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  LocationOn as LocationIcon,
+  Link as LinkIcon,
+  Business as BusinessIcon,
+  CalendarToday as CalendarIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { formatDistanceToNow, format } from 'date-fns';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import RepositoryGrid from '../components/Repository/RepositoryGrid';
 
+// Styled components
+const StyledBadge = styled(Chip)(({ theme }) => ({
+  borderRadius: '8px',
+  fontWeight: 500,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+  '& .MuiBadge-badge': {
+    right: -3,
+    top: 13,
+    padding: '0 4px',
+  },
+}));
+
+const ProfileAvatar = styled(Avatar)(({ theme }) => ({
+  width: 150,
+  height: 150,
+  border: `4px solid ${theme.palette.background.paper}`,
+  boxShadow: theme.shadows[3],
+  marginBottom: theme.spacing(2),
+  [theme.breakpoints.down('sm')]: {
+    width: 120,
+    height: 120,
+  },
+}));
+
+const StyledTab = styled(Tab)(({ theme }) => ({
+  textTransform: 'none',
+  fontWeight: 500,
+  fontSize: '0.9rem',
+  minWidth: 'auto',
+  padding: theme.spacing(1, 2),
+}));
+
 interface UserProfile {
   id: string;
   username: string;
+  full_name: string | null;
   bio: string | null;
   profile_image?: {
     id: string;
@@ -176,7 +219,7 @@ const Profile: React.FC = () => {
   
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
         <CircularProgress />
       </Box>
     );
@@ -196,157 +239,266 @@ const Profile: React.FC = () => {
   
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
-      <Paper elevation={1} sx={{ p: 3, mb: 4 }}>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: { xs: 'center', md: 'flex-start' }, 
-            mr: { md: 4 }, 
-            mb: { xs: 3, md: 0 },
-            minWidth: { md: '250px' }
-          }}>
-            <Avatar
-              src={profile.profile_image ? `/api/images/${profile.profile_image.id}` : undefined}
-              alt={profile.username}
-              sx={{ width: 120, height: 120, mb: 2 }}
-            >
-              {profile.username.charAt(0).toUpperCase()}
-            </Avatar>
-            
-            <Typography variant="h5" component="h1" gutterBottom>
-              {profile.username}
-            </Typography>
-            
-            {profile.bio && (
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                {profile.bio}
-              </Typography>
-            )}
-            
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Joined {formatDistanceToNow(new Date(profile.created_at), { addSuffix: true })}
-            </Typography>
-            
-            {!isOwnProfile && user && (
-              <Button
-                variant={isFollowing ? 'outlined' : 'contained'}
-                startIcon={isFollowing ? <PersonIcon /> : <AddIcon />}
-                onClick={handleFollowToggle}
-                sx={{ mt: 2 }}
-                fullWidth
+      <Paper 
+        elevation={0} 
+        variant="outlined" 
+        sx={{ 
+          borderRadius: '12px', 
+          overflow: 'hidden', 
+          mb: 3,
+          position: 'relative'
+        }}
+      >
+        <Box 
+          sx={{ 
+            height: '150px', 
+            backgroundColor: 'primary.main', 
+            opacity: 0.8 
+          }}
+        />
+        
+        <Box sx={{ p: 3, mt: -8 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={3} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <ProfileAvatar
+                src={profile.profile_image ? `/api/images/${profile.profile_image.id}` : undefined}
+                alt={profile.username}
               >
-                {isFollowing ? 'Following' : 'Follow'}
-              </Button>
-            )}
-            
-            {isOwnProfile && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => navigate('/settings/profile')}
-                sx={{ mt: 2 }}
-                fullWidth
-              >
-                Edit Profile
-              </Button>
-            )}
-            
-            {profile.badges && profile.badges.length > 0 && (
-              <Box sx={{ mt: 3, width: '100%' }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Badges
+                {profile.username.charAt(0).toUpperCase()}
+              </ProfileAvatar>
+              
+              {profile.full_name && (
+                <Typography variant="h5" align="center" gutterBottom sx={{ fontWeight: 600 }}>
+                  {profile.full_name}
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {profile.badges.map(badge => (
-                    <Tooltip key={badge.id} title={badge.description}>
-                      <Chip
-                        avatar={
-                          badge.icon_image ? (
-                            <Avatar src={`/api/images/${badge.icon_image.id}`} />
-                          ) : undefined
-                        }
-                        label={badge.name}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Tooltip>
-                  ))}
-                </Box>
+              )}
+              
+              <Typography 
+                variant="h6" 
+                align="center" 
+                color="primary" 
+                gutterBottom
+              >
+                @{profile.username}
+              </Typography>
+              
+              {profile.bio && (
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                  {profile.bio}
+                </Typography>
+              )}
+              
+              {!isOwnProfile && user && (
+                <Button
+                  variant={isFollowing ? 'outlined' : 'contained'}
+                  startIcon={isFollowing ? <PersonIcon /> : <AddIcon />}
+                  onClick={handleFollowToggle}
+                  fullWidth
+                  sx={{ mb: 1 }}
+                >
+                  {isFollowing ? 'Following' : 'Follow'}
+                </Button>
+              )}
+              
+              {isOwnProfile && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => navigate('/settings/profile')}
+                  fullWidth
+                  sx={{ mb: 1 }}
+                >
+                  Edit Profile
+                </Button>
+              )}
+              
+              <Box sx={{ width: '100%', mt: 2 }}>
+                <Stack spacing={1.5}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Joined {format(new Date(profile.created_at), 'MMMM yyyy')}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <LocationIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      New York, NY
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <LinkIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
+                    <Link 
+                      href="https://example.com" 
+                      target="_blank"
+                      variant="body2"
+                      sx={{ textDecoration: 'none' }}
+                    >
+                      example.com
+                    </Link>
+                  </Box>
+                </Stack>
               </Box>
-            )}
-          </Box>
-          
-          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
-          <Divider sx={{ my: 2, display: { xs: 'block', md: 'none' } }} />
-          
-          <Box sx={{ flexGrow: 1 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={6} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                    <Typography variant="h5" component="div">
-                      {profile.repositories_count}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Repositories
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                    <Typography variant="h5" component="div">
-                      {profile.stars_count}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Stars
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                    <Typography variant="h5" component="div">
-                      {profile.followers_count}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Followers
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Card variant="outlined">
-                  <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                    <Typography variant="h5" component="div">
-                      {profile.following_count}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Following
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
+
+              {profile.badges && profile.badges.length > 0 && (
+                <Box sx={{ width: '100%', mt: 3 }}>
+                  <Typography variant="subtitle2" gutterBottom fontWeight={500} sx={{ mb: 1 }}>
+                    Badges
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {profile.badges.map(badge => (
+                      <Tooltip key={badge.id} title={badge.description} arrow>
+                        <StyledBadge
+                          avatar={
+                            badge.icon_image ? (
+                              <Avatar src={`/api/images/${badge.icon_image.id}`} />
+                            ) : undefined
+                          }
+                          label={badge.name}
+                          variant="outlined"
+                        />
+                      </Tooltip>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              
+              <Box sx={{ width: '100%', mt: 3 }}>
+                <Typography variant="subtitle2" gutterBottom fontWeight={500} sx={{ mb: 1 }}>
+                  Organizations
+                </Typography>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: '8px' }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <Link component={RouterLink} to="/orgs/promptlab">
+                        <Avatar 
+                          sx={{ width: 48, height: 48, mx: 'auto' }} 
+                          alt="PromptLab"
+                          src="/logo.png"
+                        >
+                          P
+                        </Avatar>
+                      </Link>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Link component={RouterLink} to="/orgs/ai-collective">
+                        <Avatar 
+                          sx={{ width: 48, height: 48, mx: 'auto' }} 
+                          alt="AI Collective"
+                        >
+                          A
+                        </Avatar>
+                      </Link>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Link component={RouterLink} to="/orgs/view-all">
+                        <Avatar 
+                          sx={{ 
+                            width: 48, 
+                            height: 48, 
+                            mx: 'auto',
+                            bgcolor: 'background.default',
+                            color: 'text.secondary', 
+                            border: '1px dashed',
+                            borderColor: 'divider'
+                          }}
+                        >
+                          +
+                        </Avatar>
+                      </Link>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Box>
             </Grid>
             
-            <Box sx={{ mt: 3 }}>
-              <Tabs 
-                value={tabValue} 
-                onChange={handleTabChange} 
-                aria-label="profile tabs"
-                variant="scrollable"
-                scrollButtons="auto"
-              >
-                <Tab icon={<CodeIcon />} iconPosition="start" label="Repositories" />
-                <Tab icon={<StarIcon />} iconPosition="start" label="Starred" />
-                <Tab icon={<PeopleIcon />} iconPosition="start" label="Followers" />
-                <Tab icon={<PersonIcon />} iconPosition="start" label="Following" />
-              </Tabs>
+            <Grid item xs={12} md={9}>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={6} sm={3}>
+                  <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                    <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" component="div" fontWeight={600} color="primary">
+                        {profile.repositories_count}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Repositories
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                    <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" component="div" fontWeight={600} color="primary">
+                        {profile.stars_count}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Stars
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                    <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" component="div" fontWeight={600} color="primary">
+                        {profile.followers_count}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Followers
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Card variant="outlined" sx={{ borderRadius: '8px' }}>
+                    <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="h5" component="div" fontWeight={600} color="primary">
+                        {profile.following_count}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Following
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs 
+                  value={tabValue} 
+                  onChange={handleTabChange} 
+                  aria-label="profile tabs"
+                  variant="scrollable"
+                  scrollButtons="auto"
+                >
+                  <StyledTab icon={<CodeIcon fontSize="small" />} iconPosition="start" label="Repositories" />
+                  <StyledTab icon={<StarIcon fontSize="small" />} iconPosition="start" label="Starred" />
+                  <StyledTab icon={<PeopleIcon fontSize="small" />} iconPosition="start" label="Followers" />
+                  <StyledTab icon={<PersonIcon fontSize="small" />} iconPosition="start" label="Following" />
+                </Tabs>
+              </Box>
               
               <TabPanel value={tabValue} index={0}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    {isOwnProfile ? 'Your Repositories' : `${profile.username}'s Repositories`}
+                  </Typography>
+                  
+                  {isOwnProfile && (
+                    <Button 
+                      variant="contained" 
+                      size="small" 
+                      startIcon={<AddIcon />}
+                      onClick={() => navigate('/new-repository')}
+                    >
+                      New
+                    </Button>
+                  )}
+                </Box>
+                
                 {repositories.length === 0 ? (
                   <EmptyState message={`${isOwnProfile ? 'You haven\'t' : `${profile.username} hasn't`} created any repositories yet.`} />
                 ) : (
@@ -355,6 +507,10 @@ const Profile: React.FC = () => {
               </TabPanel>
               
               <TabPanel value={tabValue} index={1}>
+                <Typography variant="h6" sx={{ fontWeight: 500, mb: 2 }}>
+                  Starred Repositories
+                </Typography>
+                
                 {starredRepositories.length === 0 ? (
                   <EmptyState message={`${isOwnProfile ? 'You haven\'t' : `${profile.username} hasn't`} starred any repositories yet.`} />
                 ) : (
@@ -363,6 +519,10 @@ const Profile: React.FC = () => {
               </TabPanel>
               
               <TabPanel value={tabValue} index={2}>
+                <Typography variant="h6" sx={{ fontWeight: 500, mb: 2 }}>
+                  Followers
+                </Typography>
+                
                 {followers.length === 0 ? (
                   <EmptyState message={`${isOwnProfile ? 'You don\'t' : `${profile.username} doesn't`} have any followers yet.`} />
                 ) : (
@@ -371,14 +531,18 @@ const Profile: React.FC = () => {
               </TabPanel>
               
               <TabPanel value={tabValue} index={3}>
+                <Typography variant="h6" sx={{ fontWeight: 500, mb: 2 }}>
+                  Following
+                </Typography>
+                
                 {following.length === 0 ? (
                   <EmptyState message={`${isOwnProfile ? 'You aren\'t' : `${profile.username} isn't`} following anyone yet.`} />
                 ) : (
                   <UserList users={following} userAction={isOwnProfile ? 'unfollow' : undefined} />
                 )}
               </TabPanel>
-            </Box>
-          </Box>
+            </Grid>
+          </Grid>
         </Box>
       </Paper>
     </Container>
@@ -433,9 +597,12 @@ interface UserListProps {
 const UserList: React.FC<UserListProps> = ({ users, userAction }) => {
   const navigate = useNavigate();
   const [followStatuses, setFollowStatuses] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
   
   const handleFollowToggle = async (userId: string, username: string, isCurrentlyFollowing: boolean) => {
     try {
+      setLoading(prev => ({ ...prev, [userId]: true }));
+      
       if (isCurrentlyFollowing) {
         await api.delete(`/accounts/${username}/unfollow`);
         setFollowStatuses(prev => ({ ...prev, [userId]: false }));
@@ -445,6 +612,8 @@ const UserList: React.FC<UserListProps> = ({ users, userAction }) => {
       }
     } catch (err) {
       console.error('Error toggling follow:', err);
+    } finally {
+      setLoading(prev => ({ ...prev, [userId]: false }));
     }
   };
   
@@ -474,6 +643,7 @@ const UserList: React.FC<UserListProps> = ({ users, userAction }) => {
                   user.username, 
                   !!followStatuses[user.id]
                 )}
+                disabled={loading[user.id]}
               >
                 {followStatuses[user.id] ? 'Unfollow' : 'Follow'}
               </Button>
@@ -495,7 +665,7 @@ const UserList: React.FC<UserListProps> = ({ users, userAction }) => {
               <Typography 
                 variant="body1" 
                 component="span"
-                sx={{ cursor: 'pointer' }}
+                sx={{ cursor: 'pointer', fontWeight: 500 }}
                 onClick={() => navigate(`/users/${user.username}`)}
               >
                 {user.username}
@@ -506,14 +676,6 @@ const UserList: React.FC<UserListProps> = ({ users, userAction }) => {
         </ListItem>
       ))}
     </List>
-  );
-};
-
-const Tooltip: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
-  return (
-    <div title={title}>
-      {children}
-    </div>
   );
 };
 

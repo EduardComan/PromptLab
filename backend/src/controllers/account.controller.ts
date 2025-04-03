@@ -10,7 +10,7 @@ const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d';
 // Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, email, password, bio } = req.body;
+    const { username, email, password, full_name, bio } = req.body;
 
     // Check if user already exists
     const existingUser = await Account.findOne({
@@ -38,6 +38,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       username,
       email,
       password_hash: hashedPassword,
+      full_name: full_name || null,
       bio: bio || null,
     });
 
@@ -55,6 +56,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         id: newUser.id,
         username: newUser.username,
         email: newUser.email,
+        full_name: newUser.full_name,
         bio: newUser.bio,
       },
     });
@@ -191,7 +193,7 @@ export const getUserByUsername = async (req: Request, res: Response): Promise<vo
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user.id;
-    const { bio, email } = req.body;
+    const { bio, email, full_name } = req.body;
 
     const user = await Account.findByPk(userId);
     if (!user) {
@@ -202,6 +204,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     // Update fields
     if (bio !== undefined) user.bio = bio;
     if (email !== undefined) user.email = email;
+    if (full_name !== undefined) user.full_name = full_name;
 
     await user.save();
 
@@ -211,6 +214,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         id: user.id,
         username: user.username,
         email: user.email,
+        full_name: user.full_name,
         bio: user.bio,
         profile_image_id: user.profile_image_id,
       },

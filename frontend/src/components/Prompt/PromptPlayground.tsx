@@ -17,11 +17,13 @@ import {
   Paper,
   Slider,
   SelectChangeEvent,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Tabs,
+  Tab,
+  IconButton,
+  Badge,
+  Tooltip,
   Alert,
-  Tooltip
+  styled
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -29,7 +31,12 @@ import {
   Settings as SettingsIcon,
   PlayArrow as RunIcon,
   History as HistoryIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Code as CodeIcon,
+  Description as DescriptionIcon,
+  DataObject as DataObjectIcon,
+  MoreVert as MoreVertIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -37,6 +44,40 @@ import { PromptVersion } from '../../interfaces';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { vs2015 } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Styled components
+const StyledTab = styled(Tab)(({ theme }) => ({
+  minHeight: '48px',
+  textTransform: 'none',
+  fontSize: '0.875rem',
+  fontWeight: 500,
+}));
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`playground-tabpanel-${index}`}
+      aria-labelledby={`playground-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ py: 2 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 interface PromptVariable {
   name: string;
@@ -85,8 +126,10 @@ const PromptPlayground: React.FC<PromptPlaygroundProps> = ({ prompt, version }) 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [promptRuns, setPromptRuns] = useState<PromptRun[]>([]);
-  const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<number>(0);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<number>(0);
   const [metrics, setMetrics] = useState<any>(null);
+  const [renderedPrompt, setRenderedPrompt] = useState<string>('');
   
   // Extract variables from the prompt content on component mount
   useEffect(() => {
@@ -178,6 +221,26 @@ const PromptPlayground: React.FC<PromptPlaygroundProps> = ({ prompt, version }) 
     setMaxTokens(newValue as number);
   };
   
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+  
+  const handleSettingsTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveSettingsTab(newValue);
+  };
+  
+  const handleRenderPrompt = () => {
+    // Replace variables in the prompt template
+    let content = version ? version.content_snapshot : prompt.content;
+    
+    variables.forEach(variable => {
+      const regex = new RegExp(`{{\\s*${variable.name}\\s*}}`, 'g');
+      content = content.replace(regex, variable.value || `[${variable.name}]`);
+    });
+    
+    setRenderedPrompt(content);
+  };
+  
   const handleRunPrompt = async () => {
     if (!selectedModel) {
       setError('Please select a model');
@@ -202,9 +265,13 @@ const PromptPlayground: React.FC<PromptPlaygroundProps> = ({ prompt, version }) 
         max_tokens: maxTokens
       };
       
+      // First get the rendered prompt
+      handleRenderPrompt();
+      
       // Make API call
       const response = await axios.post('/api/execution/run', {
-        versionId: version?.id,
+        prompt_id: prompt.id,
+        version_id: version?.id,
         model: selectedModel,
         input: inputVariables,
         parameters
@@ -254,243 +321,471 @@ const PromptPlayground: React.FC<PromptPlaygroundProps> = ({ prompt, version }) 
         setMaxTokens(run.metrics.model_parameters.max_tokens);
       }
     }
+    
+    // Set the result and rendered prompt
+    setResult(run.output);
+    setRenderedPrompt(run.rendered_prompt);
+    
+    // Switch to the appropriate tabs
+    setActiveTab(0);
+  };
+  
+  const formatTime = (ms: number): string => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
   };
   
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Playground
-      </Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="subtitle1" gutterBottom>
-              Input Variables
-            </Typography>
-            
-            {variables.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No variables found in this prompt.
-              </Typography>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
-                {variables.map((variable, index) => (
-                  <TextField
-                    key={variable.name}
-                    label={variable.name}
-                    value={variable.value}
-                    onChange={(e) => handleVariableChange(index, e.target.value)}
-                    fullWidth
-                    multiline={variable.name.toLowerCase().includes('text')}
-                    rows={variable.name.toLowerCase().includes('text') ? 3 : 1}
-                  />
-                ))}
-              </Box>
-            )}
-            
-            <Divider sx={{ my: 3 }} />
-            
-            <Accordion>
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls="model-settings-content"
-                id="model-settings-header"
-              >
-                <SettingsIcon sx={{ mr: 1 }} />
-                <Typography>Model Settings</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel id="model-select-label">Model</InputLabel>
-                  <Select
-                    labelId="model-select-label"
-                    value={selectedModel}
-                    label="Model"
-                    onChange={handleModelChange}
-                  >
-                    {models.map((model) => (
-                      <MenuItem key={model} value={model}>
-                        {model}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
-                <Box sx={{ mb: 2 }}>
-                  <Typography gutterBottom>
-                    Temperature: {temperature}
-                    <Tooltip title="Controls randomness: Higher values produce more creative outputs">
-                      <InfoIcon fontSize="small" sx={{ ml: 1, verticalAlign: 'middle', color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Typography>
-                  <Slider
-                    value={temperature}
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    onChange={handleTemperatureChange}
-                    valueLabelDisplay="auto"
-                  />
-                </Box>
-                
-                <Box>
-                  <Typography gutterBottom>
-                    Max Tokens: {maxTokens}
-                    <Tooltip title="Maximum length of generated output">
-                      <InfoIcon fontSize="small" sx={{ ml: 1, verticalAlign: 'middle', color: 'text.secondary' }} />
-                    </Tooltip>
-                  </Typography>
-                  <Slider
-                    value={maxTokens}
-                    min={100}
-                    max={4000}
-                    step={100}
-                    onChange={handleMaxTokensChange}
-                    valueLabelDisplay="auto"
-                  />
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-            
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-              <Button
-                variant="outlined"
-                startIcon={<HistoryIcon />}
-                onClick={() => setShowHistory(!showHistory)}
-              >
-                {showHistory ? 'Hide History' : 'Show History'}
-              </Button>
-              
-              <Button
-                variant="contained"
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <RunIcon />}
-                onClick={handleRunPrompt}
-                disabled={loading || !selectedModel}
-              >
-                Run Prompt
-              </Button>
-            </Box>
-            
-            {showHistory && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Recent Runs
+      <Paper elevation={0} variant="outlined" sx={{ mb: 3, borderRadius: '8px', overflow: 'hidden' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={handleTabChange} 
+            aria-label="playground tabs"
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <StyledTab icon={<CodeIcon fontSize="small" />} iconPosition="start" label="Playground" />
+            <StyledTab icon={<HistoryIcon fontSize="small" />} iconPosition="start" label="History" />
+            <StyledTab icon={<DescriptionIcon fontSize="small" />} iconPosition="start" label="Raw Prompt" />
+          </Tabs>
+        </Box>
+        
+        <TabPanel value={activeTab} index={0}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+                  Variables
                 </Typography>
                 
-                {promptRuns.length === 0 ? (
+                {variables.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
-                    No recent runs found.
+                    No variables found in this prompt.
                   </Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {promptRuns.map((run) => (
-                      <Paper key={run.id} variant="outlined" sx={{ p: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Typography variant="body2">
-                            Model: <Chip label={run.model} size="small" />
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(run.created_at).toLocaleString()}
-                          </Typography>
-                        </Box>
-                        
-                        <Box sx={{ mb: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Input variables: 
-                            {Object.entries(run.input_variables).map(([key, value]) => (
-                              <Chip 
-                                key={key} 
-                                label={`${key}: ${value.substring(0, 15)}${value.length > 15 ? '...' : ''}`} 
-                                size="small" 
-                                sx={{ ml: 1, my: 0.5 }} 
-                              />
-                            ))}
-                          </Typography>
-                        </Box>
-                        
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => handleReuseRun(run)}
-                        >
-                          Use These Settings
-                        </Button>
-                      </Paper>
+                    {variables.map((variable, index) => (
+                      <TextField
+                        key={variable.name}
+                        label={variable.name}
+                        value={variable.value}
+                        onChange={(e) => handleVariableChange(index, e.target.value)}
+                        fullWidth
+                        multiline={variable.name.toLowerCase().includes('text')}
+                        rows={variable.name.toLowerCase().includes('text') ? 3 : 1}
+                        variant="outlined"
+                        size="small"
+                      />
                     ))}
                   </Box>
                 )}
               </Box>
-            )}
-          </Paper>
-        </Grid>
-        
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="subtitle1" gutterBottom>
-              Result
-            </Typography>
-            
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : error ? (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            ) : result ? (
-              <Box>
-                <SyntaxHighlighter
-                  language="markdown"
-                  style={vs2015}
-                  customStyle={{ maxHeight: '500px', overflow: 'auto' }}
-                >
-                  {result}
-                </SyntaxHighlighter>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+                  Model Settings
+                </Typography>
                 
-                {metrics && (
-                  <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Metrics
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={4}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                  <Tabs 
+                    value={activeSettingsTab} 
+                    onChange={handleSettingsTabChange}
+                    aria-label="model settings tabs"
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{ minHeight: '36px' }}
+                  >
+                    <Tab label="Basic" sx={{ minHeight: '36px', py: 0 }} />
+                    <Tab label="Advanced" sx={{ minHeight: '36px', py: 0 }} />
+                  </Tabs>
+                </Box>
+                
+                {activeSettingsTab === 0 && (
+                  <Box>
+                    <FormControl fullWidth sx={{ mb: 2 }} size="small">
+                      <InputLabel id="model-select-label">Model</InputLabel>
+                      <Select
+                        labelId="model-select-label"
+                        value={selectedModel}
+                        label="Model"
+                        onChange={handleModelChange}
+                      >
+                        {models.map((model) => (
+                          <MenuItem key={model} value={model}>
+                            {model}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    
+                    <Box sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="body2">
+                          Temperature
+                          <Tooltip title="Controls randomness: Higher values produce more creative outputs">
+                            <InfoIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: 'text.secondary', fontSize: '1rem' }} />
+                          </Tooltip>
+                        </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Processing Time
+                          {temperature}
                         </Typography>
-                        <Typography variant="body1">
-                          {(metrics.processing_time_ms / 1000).toFixed(2)}s
+                      </Box>
+                      <Slider
+                        value={temperature}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        onChange={handleTemperatureChange}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+                )}
+                
+                {activeSettingsTab === 1 && (
+                  <Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="body2">
+                          Max Tokens
+                          <Tooltip title="Maximum length of generated output">
+                            <InfoIcon fontSize="small" sx={{ ml: 0.5, verticalAlign: 'middle', color: 'text.secondary', fontSize: '1rem' }} />
+                          </Tooltip>
                         </Typography>
-                      </Grid>
-                      <Grid item xs={4}>
                         <Typography variant="body2" color="text.secondary">
-                          Input Tokens
+                          {maxTokens}
                         </Typography>
-                        <Typography variant="body1">
-                          {metrics.tokens_input}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={4}>
-                        <Typography variant="body2" color="text.secondary">
-                          Output Tokens
-                        </Typography>
-                        <Typography variant="body1">
-                          {metrics.tokens_output}
-                        </Typography>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                      <Slider
+                        value={maxTokens}
+                        min={100}
+                        max={4000}
+                        step={100}
+                        onChange={handleMaxTokensChange}
+                        size="small"
+                      />
+                    </Box>
+                    
+                    {/* Additional advanced settings could go here */}
                   </Box>
                 )}
               </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                Run the prompt to see results here.
-              </Typography>
-            )}
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<DescriptionIcon />}
+                  onClick={handleRenderPrompt}
+                  sx={{ mr: 1 }}
+                >
+                  Preview
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <RunIcon />}
+                  onClick={handleRunPrompt}
+                  disabled={loading || !selectedModel}
+                >
+                  Run Prompt
+                </Button>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Box sx={{ height: '100%' }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+                  Output
+                </Typography>
+                
+                {loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+                    <CircularProgress />
+                  </Box>
+                ) : error ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                  </Alert>
+                ) : result ? (
+                  <Box>
+                    <Paper 
+                      variant="outlined" 
+                      sx={{ 
+                        p: 2, 
+                        maxHeight: '400px', 
+                        overflow: 'auto',
+                        backgroundColor: 'background.paper',
+                        borderRadius: '4px',
+                        mb: 2
+                      }}
+                    >
+                      <SyntaxHighlighter
+                        language="markdown"
+                        style={vs2015}
+                        customStyle={{ 
+                          backgroundColor: 'transparent',
+                          margin: 0,
+                          padding: 0
+                        }}
+                      >
+                        {result}
+                      </SyntaxHighlighter>
+                    </Paper>
+                    
+                    {metrics && (
+                      <Paper variant="outlined" sx={{ p: 2, borderRadius: '4px' }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Run Metrics
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2" color="text.secondary">
+                              Time
+                            </Typography>
+                            <Typography variant="body1">
+                              {formatTime(metrics.processing_time_ms)}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={4}>
+                            <Typography variant="body2" color="text.secondary">
+                              Input Tokens
+                            </Typography>
+                            <Typography variant="body1">
+                              {metrics.tokens_input}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={4}>
+                            <Typography variant="body2" color="text.secondary">
+                              Output Tokens
+                            </Typography>
+                            <Typography variant="body1">
+                              {metrics.tokens_output}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Paper>
+                    )}
+                  </Box>
+                ) : renderedPrompt ? (
+                  <Paper 
+                    variant="outlined" 
+                    sx={{ 
+                      p: 2, 
+                      maxHeight: '400px', 
+                      overflow: 'auto',
+                      backgroundColor: 'background.paper',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Rendered Prompt:
+                    </Typography>
+                    <SyntaxHighlighter
+                      language="markdown"
+                      style={vs2015}
+                      customStyle={{ 
+                        backgroundColor: 'transparent',
+                        margin: 0,
+                        padding: 0
+                      }}
+                    >
+                      {renderedPrompt}
+                    </SyntaxHighlighter>
+                  </Paper>
+                ) : (
+                  <Paper 
+                    variant="outlined" 
+                    sx={{ 
+                      p: 2, 
+                      height: '300px',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: 'background.default',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary" align="center">
+                      Set your variables and click "Run Prompt" to generate output
+                    </Typography>
+                  </Paper>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </TabPanel>
+        
+        <TabPanel value={activeTab} index={1}>
+          <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+            Recent Runs
+          </Typography>
+          
+          {promptRuns.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No execution history found for this prompt.
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {promptRuns.map((run) => (
+                <Grid item xs={12} key={run.id}>
+                  <Paper 
+                    variant="outlined" 
+                    sx={{ 
+                      p: 2,
+                      borderRadius: '8px',
+                      '&:hover': {
+                        boxShadow: 1
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Box>
+                        <Typography variant="subtitle2">
+                          Run with {run.model}
+                          {!run.success && (
+                            <Chip 
+                              label="Failed" 
+                              color="error" 
+                              size="small" 
+                              sx={{ ml: 1, height: '20px' }} 
+                            />
+                          )}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(run.created_at).toLocaleString()}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Tooltip title="Use these settings">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleReuseRun(run)}
+                          >
+                            Reuse
+                          </Button>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                    
+                    <Divider sx={{ my: 1 }} />
+                    
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Input Variables
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {Object.entries(run.input_variables).map(([key, value]) => (
+                            <Chip 
+                              key={key} 
+                              label={`${key}: ${value.length > 20 ? value.substring(0, 20) + '...' : value}`} 
+                              size="small" 
+                              variant="outlined"
+                              sx={{ mb: 0.5 }} 
+                            />
+                          ))}
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Output Preview
+                        </Typography>
+                        <Typography variant="body2" noWrap>
+                          {run.output.substring(0, 50)}{run.output.length > 50 ? '...' : ''}
+                        </Typography>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Metrics
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Time</Typography>
+                            <Typography variant="body2">
+                              {formatTime(run.metrics.processing_time_ms)}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Tokens</Typography>
+                            <Typography variant="body2">
+                              {run.metrics.tokens_input + run.metrics.tokens_output}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Temp</Typography>
+                            <Typography variant="body2">
+                              {run.metrics.model_parameters?.temperature || 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </TabPanel>
+        
+        <TabPanel value={activeTab} index={2}>
+          <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+            Raw Prompt Template
+          </Typography>
+          
+          <Paper 
+            variant="outlined" 
+            sx={{ 
+              p: 2, 
+              maxHeight: '500px', 
+              overflow: 'auto',
+              backgroundColor: 'background.paper',
+              borderRadius: '4px'
+            }}
+          >
+            <SyntaxHighlighter
+              language="markdown"
+              style={vs2015}
+              customStyle={{ 
+                backgroundColor: 'transparent',
+                margin: 0,
+                padding: 0
+              }}
+            >
+              {version ? version.content_snapshot : prompt.content}
+            </SyntaxHighlighter>
           </Paper>
-        </Grid>
-      </Grid>
+          
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Variables
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {variables.map((variable) => (
+                <Chip 
+                  key={variable.name} 
+                  label={variable.name} 
+                  size="small" 
+                  color="primary"
+                  variant="outlined"
+                />
+              ))}
+              {variables.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No variables defined in this prompt.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </TabPanel>
+      </Paper>
     </Box>
   );
 };

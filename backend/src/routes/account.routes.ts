@@ -15,6 +15,7 @@ router.post(
     body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Username must be between 3 and 30 characters'),
     body('email').isEmail().normalizeEmail().withMessage('Must be a valid email'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('full_name').optional().isString().withMessage('Full name must be a string'),
     validateRequest,
   ],
   accountController.register
@@ -41,6 +42,7 @@ router.put(
   [
     body('bio').optional().isString().withMessage('Bio must be a string'),
     body('email').optional().isEmail().normalizeEmail().withMessage('Must be a valid email'),
+    body('full_name').optional().isString().withMessage('Full name must be a string'),
     validateRequest,
   ],
   accountController.updateProfile

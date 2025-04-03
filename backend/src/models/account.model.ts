@@ -8,6 +8,7 @@ interface AccountAttributes {
   username: string;
   email: string;
   password_hash: string;
+  full_name?: string;
   bio?: string;
   profile_image_id?: string;
   is_active: boolean;
@@ -24,6 +25,7 @@ class Account extends Model<AccountAttributes, AccountCreationAttributes> implem
   public username!: string;
   public email!: string;
   public password_hash!: string;
+  public full_name!: string | null;
   public bio!: string | null;
   public profile_image_id!: string | null;
   public is_active!: boolean;
@@ -55,6 +57,10 @@ Account.init(
     password_hash: {
       type: DataTypes.TEXT,
       allowNull: false,
+    },
+    full_name: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     bio: {
       type: DataTypes.TEXT,

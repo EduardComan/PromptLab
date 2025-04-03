@@ -150,6 +150,7 @@ const ProfileSettings: React.FC = () => {
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
+    full_name: user?.full_name || '',
     bio: user?.bio || '',
   });
   const [profileImage, setProfileImage] = useState<File | null>(null);
@@ -191,6 +192,7 @@ const ProfileSettings: React.FC = () => {
       // Update profile information
       const profileResponse = await api.put('/accounts/profile', {
         username: formData.username,
+        full_name: formData.full_name,
         bio: formData.bio
       });
       
@@ -218,6 +220,7 @@ const ProfileSettings: React.FC = () => {
       updateUser({
         ...user!,
         username: formData.username,
+        full_name: formData.full_name,
         bio: formData.bio
       });
       
@@ -286,6 +289,17 @@ const ProfileSettings: React.FC = () => {
                 label="Username"
                 name="username"
                 value={formData.username}
+                onChange={handleInputChange}
+                fullWidth
+                required
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                label="Full Name"
+                name="full_name"
+                value={formData.full_name}
                 onChange={handleInputChange}
                 fullWidth
                 required

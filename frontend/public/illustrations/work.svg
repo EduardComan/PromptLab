@@ -1,0 +1,48 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="250" cy="250" r="180" fill="#F4F9F4" opacity="0.6"/>
+  
+  <!-- Laptop -->
+  <rect x="180" y="200" width="140" height="100" rx="5" fill="#333333"/>
+  <rect x="175" y="290" width="150" height="10" rx="5" fill="#333333"/>
+  <rect x="190" y="210" width="120" height="80" fill="#FFFFFF"/>
+  
+  <!-- Person 1 -->
+  <circle cx="175" cy="170" r="25" fill="#74C69D"/>
+  <path d="M165 165L175 175L185 165" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Person 2 -->
+  <circle cx="325" cy="170" r="25" fill="#74C69D"/>
+  <path d="M315 165L325 175L335 165" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Code on screen -->
+  <line x1="200" y1="225" x2="240" y2="225" stroke="#E0E0E0" stroke-width="3"/>
+  <line x1="200" y1="235" x2="280" y2="235" stroke="#E0E0E0" stroke-width="3"/>
+  <line x1="200" y1="245" x2="260" y2="245" stroke="#E0E0E0" stroke-width="3"/>
+  <line x1="200" y1="255" x2="290" y2="255" stroke="#E0E0E0" stroke-width="3"/>
+  <line x1="200" y1="265" x2="250" y2="265" stroke="#E0E0E0" stroke-width="3"/>
+  <line x1="200" y1="275" x2="270" y2="275" stroke="#E0E0E0" stroke-width="3"/>
+  
+  <!-- Connection bubbles -->
+  <circle cx="160" cy="120" r="12" fill="#74C69D" opacity="0.7"/>
+  <circle cx="340" cy="120" r="12" fill="#74C69D" opacity="0.7"/>
+  <circle cx="250" cy="100" r="15" fill="#74C69D" opacity="0.7"/>
+  
+  <!-- Connection lines -->
+  <path d="M160 120C160 120 180 140 175 170" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M340 120C340 120 330 140 325 170" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M250 100C250 100 250 120 250 160" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M250 160C250 160 210 170 175 170" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M250 160C250 160 290 170 325 170" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  
+  <!-- Document icons floating -->
+  <rect x="130" y="220" width="20" height="25" rx="2" fill="#E0E0E0"/>
+  <line x1="135" y1="227" x2="145" y2="227" stroke="#333333" stroke-width="1"/>
+  <line x1="135" y1="232" x2="145" y2="232" stroke="#333333" stroke-width="1"/>
+  <line x1="135" y1="237" x2="142" y2="237" stroke="#333333" stroke-width="1"/>
+  
+  <rect x="350" y="220" width="20" height="25" rx="2" fill="#E0E0E0"/>
+  <line x1="355" y1="227" x2="365" y2="227" stroke="#333333" stroke-width="1"/>
+  <line x1="355" y1="232" x2="365" y2="232" stroke="#333333" stroke-width="1"/>
+  <line x1="355" y1="237" x2="362" y2="237" stroke="#333333" stroke-width="1"/>
+</svg> 

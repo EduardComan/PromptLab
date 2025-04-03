@@ -17,6 +17,8 @@ import OrganizationDetail from './pages/OrganizationDetail';
 import Search from './pages/Search';
 import MergeRequest from './pages/MergeRequest';
 import NotificationList from './pages/NotificationList';
+import Terms from './pages/Terms';
+import ForgotPassword from './pages/ForgotPassword';
 
 // Layouts
 import MainLayout from './components/Layout/MainLayout';
@@ -49,6 +51,8 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/terms" element={<Terms />} />
           
           {/* Main layout routes */}
           <Route path="/" element={<MainLayout />}>
