@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   AppBar, 
   Avatar, 
@@ -9,17 +9,19 @@ import {
   MenuItem, 
   Toolbar, 
   Tooltip, 
-  Typography 
+  Typography,
+  Badge
 } from '@mui/material';
 import { 
   Menu as MenuIcon, 
-  GitHub as GitHubIcon, 
+  RocketLaunch as RocketIcon, 
   AccountCircle, 
-  Search as SearchIcon 
+  Search as SearchIcon,
+  Notifications as NotificationsIcon 
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import NotificationCenter from '../notification/NotificationCenter';
+import { useThemeContext } from '../../contexts/ThemeContext';
 import ThemeToggle from '../Common/ThemeToggle';
 
 interface NavbarProps {
@@ -30,9 +32,11 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ drawerWidth, open, handleDrawerOpen }) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
+  const { mode } = useThemeContext();
   
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
   
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -40,6 +44,14 @@ const Navbar: React.FC<NavbarProps> = ({ drawerWidth, open, handleDrawerOpen }) 
   
   const handleProfileMenuClose = () => {
     setAnchorEl(null);
+  };
+  
+  const handleNotificationsOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationsAnchorEl(event.currentTarget);
+  };
+  
+  const handleNotificationsClose = () => {
+    setNotificationsAnchorEl(null);
   };
   
   const handleLogout = () => {
@@ -59,6 +71,11 @@ const Navbar: React.FC<NavbarProps> = ({ drawerWidth, open, handleDrawerOpen }) 
         width: { sm: `calc(100% - ${drawerWidth}px)` },
         ml: { sm: `${drawerWidth}px` },
         zIndex: (theme) => theme.zIndex.drawer + 1,
+        backgroundColor: mode === 'light' ? '#fff' : '#1e1e1e',
+        color: mode === 'light' ? '#333' : '#fff',
+        boxShadow: mode === 'light' 
+          ? '0 2px 10px rgba(0,0,0,0.05)' 
+          : '0 2px 10px rgba(0,0,0,0.2)',
       }}
     >
       <Toolbar>
@@ -74,7 +91,7 @@ const Navbar: React.FC<NavbarProps> = ({ drawerWidth, open, handleDrawerOpen }) 
         
         {/* Logo and App name */}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <GitHubIcon sx={{ mr: 1 }} />
+          <RocketIcon sx={{ mr: 1 }} />
           <Typography
             variant="h6"
             noWrap
@@ -103,10 +120,33 @@ const Navbar: React.FC<NavbarProps> = ({ drawerWidth, open, handleDrawerOpen }) 
         
         <Box sx={{ flexGrow: 1 }} />
         
-        {user ? (
+        {isAuthenticated ? (
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {/* Notifications */}
-            <NotificationCenter />
+            <Tooltip title="Notifications">
+              <IconButton 
+                color="inherit" 
+                sx={{ ml: 1 }}
+                onClick={handleNotificationsOpen}
+              >
+                <Badge badgeContent={3} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+            
+            {/* Notifications menu */}
+            <Menu
+              anchorEl={notificationsAnchorEl}
+              open={Boolean(notificationsAnchorEl)}
+              onClose={handleNotificationsClose}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <MenuItem onClick={handleNotificationsClose}>New comment on your prompt</MenuItem>
+              <MenuItem onClick={handleNotificationsClose}>New follower</MenuItem>
+              <MenuItem onClick={handleNotificationsClose}>System update</MenuItem>
+            </Menu>
             
             {/* User profile menu */}
             <Tooltip title="Account settings">
@@ -116,7 +156,7 @@ const Navbar: React.FC<NavbarProps> = ({ drawerWidth, open, handleDrawerOpen }) 
                 color="inherit"
                 sx={{ ml: 1 }}
               >
-                {user.profile_image_id ? (
+                {user?.profile_image_id ? (
                   <Avatar
                     alt={user.username}
                     src={`/api/images/${user.profile_image_id}`}

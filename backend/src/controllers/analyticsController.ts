@@ -1,5 +1,13 @@
 import { Request, Response } from 'express';
-import PromptRun from '../models/PromptRun';
+import prisma from '../lib/prisma';
+
+interface MetricsData {
+  responseTime?: number;
+  tokenCount?: number;
+  tokenUsage?: number;
+  completionRate?: number;
+  userSatisfactionScore?: number;
+}
 
 /**
  * Get performance metrics for a prompt
@@ -17,10 +25,72 @@ export const getPromptPerformance = async (req: Request, res: Response) => {
       });
     }
 
-    const metrics = await PromptRun.getPerformanceMetrics(
-      promptId,
-      period as 'day' | 'week' | 'month'
-    );
+    // Get all runs for the prompt
+    const runs = await prisma.promptRun.findMany({
+      where: { prompt_id: promptId },
+      orderBy: { created_at: 'asc' },
+    });
+
+    // Group runs by date based on period
+    const groupedRuns = runs.reduce((acc: Record<string, any[]>, run: any) => {
+      const date = new Date(run.created_at);
+      let key: string;
+      
+      switch (period) {
+        case 'week':
+          // Get the week number
+          const weekNumber = Math.ceil((date.getDate() + (new Date(date.getFullYear(), date.getMonth(), 1).getDay())) / 7);
+          key = `${date.getFullYear()}-${date.getMonth() + 1}-W${weekNumber}`;
+          break;
+        case 'month':
+          key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+          break;
+        case 'day':
+        default:
+          key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+          break;
+      }
+      
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(run);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Calculate metrics for each group
+    const metrics = Object.entries(groupedRuns).map(([date, groupRuns]) => {
+      const totalRuns = (groupRuns as any[]).length;
+      const successfulRuns = (groupRuns as any[]).filter((run: any) => run.success).length;
+      const successRate = totalRuns > 0 ? successfulRuns / totalRuns : 0;
+      
+      // Extract metrics from metadata where available
+      const metricsArray = (groupRuns as any[])
+        .filter((run: any) => run.metadata && typeof run.metadata === 'object')
+        .map((run: any) => {
+          const metadata = run.metadata as Record<string, any>;
+          return metadata.metrics as MetricsData;
+        })
+        .filter((metrics: any) => metrics !== undefined);
+      
+      // Calculate averages for available metrics
+      const avgResponseTime = calculateAverage(metricsArray, 'responseTime');
+      const avgTokenCount = calculateAverage(metricsArray, 'tokenCount');
+      const avgTokenUsage = calculateAverage(metricsArray, 'tokenUsage');
+      const avgCompletionRate = calculateAverage(metricsArray, 'completionRate');
+      const avgSatisfaction = calculateAverage(metricsArray, 'userSatisfactionScore');
+      
+      return {
+        date,
+        totalRuns,
+        successRate,
+        metrics: {
+          responseTime: avgResponseTime,
+          tokenCount: avgTokenCount,
+          tokenUsage: avgTokenUsage,
+          completionRate: avgCompletionRate,
+          userSatisfactionScore: avgSatisfaction,
+        }
+      };
+    });
 
     return res.status(200).json({
       success: true,
@@ -79,13 +149,25 @@ export const getPromptRunHistory = async (req: Request, res: Response) => {
       }
     }
 
+    // Build where clause
+    const where: any = { prompt_id: promptId };
+    
+    // Add date range filter
+    if (parsedStartDate || parsedEndDate) {
+      where.created_at = {};
+      if (parsedStartDate) where.created_at.gte = parsedStartDate;
+      if (parsedEndDate) where.created_at.lte = parsedEndDate;
+    }
+
+    // Get the total count
+    const totalCount = await prisma.promptRun.count({ where });
+    
     // Get runs with filters
-    const runs = await PromptRun.getPromptRuns({
-      promptId,
-      startDate: parsedStartDate,
-      endDate: parsedEndDate,
-      limit: parsedLimit,
-      offset: parsedOffset,
+    const runs = await prisma.promptRun.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: parsedLimit,
+      skip: parsedOffset,
     });
 
     return res.status(200).json({
@@ -94,7 +176,7 @@ export const getPromptRunHistory = async (req: Request, res: Response) => {
       pagination: {
         limit: parsedLimit,
         offset: parsedOffset,
-        total: runs.length, // Note: In a real implementation, you would add a count query
+        total: totalCount,
       },
     });
   } catch (error) {
@@ -129,9 +211,11 @@ export const getVersionComparison = async (req: Request, res: Response) => {
     const metrics = await Promise.all(
       parsedVersionIds.map(async (versionId) => {
         // Get runs for this version
-        const runs = await PromptRun.getPromptRuns({
-          promptId,
-          versionId,
+        const runs = await prisma.promptRun.findMany({
+          where: {
+            prompt_id: promptId,
+            version_id: versionId
+          }
         });
 
         // Count successful runs
@@ -140,8 +224,12 @@ export const getVersionComparison = async (req: Request, res: Response) => {
 
         // Extract metrics from all runs for this version
         const metricsArray = runs
-          .filter((run: any) => run.metadata && (run.metadata as any).metrics)
-          .map((run: any) => (run.metadata as any).metrics);
+          .filter((run: any) => run.metadata && typeof run.metadata === 'object')
+          .map((run: any) => {
+            const metadata = run.metadata as Record<string, any>;
+            return metadata.metrics as MetricsData;
+          })
+          .filter((metrics: any) => metrics !== undefined);
 
         // Calculate averages for available metrics
         const avgResponseTime = calculateAverage(metricsArray, 'responseTime');
@@ -182,10 +270,10 @@ export const getVersionComparison = async (req: Request, res: Response) => {
 /**
  * Helper function to calculate average of a specific metric across an array of metrics objects
  */
-function calculateAverage(metricsArray: any[], metricName: string): number | undefined {
+function calculateAverage(metricsArray: MetricsData[], metricName: keyof MetricsData): number | undefined {
   const values = metricsArray
     .map(metrics => metrics[metricName])
-    .filter(value => value !== undefined && value !== null);
+    .filter(value => value !== undefined && value !== null) as number[];
 
   return values.length > 0
     ? values.reduce((sum, value) => sum + value, 0) / values.length

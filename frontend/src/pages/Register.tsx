@@ -1,31 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
+import {
+  Box,
   Typography, 
   TextField, 
-  Button, 
-  Link, 
+  Button,
+  Link,
   Alert,
   CircularProgress,
-  Grid,
   useTheme,
-  useMediaQuery,
-  Checkbox,
-  FormControlLabel,
   styled,
   IconButton,
   InputAdornment,
   Divider,
-  Card
+  Card,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { RegisterData } from '../interfaces';
 import { RocketLaunch as RocketIcon } from '@mui/icons-material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import GoogleIcon from '@mui/icons-material/Google';
 import AppleIcon from '@mui/icons-material/Apple';
 import FacebookIcon from '@mui/icons-material/Facebook';
+import { PersonOutline as PersonOutlineIcon } from '@mui/icons-material';
+import { LoadingButton } from '@mui/lab';
 
 // Styled components
 const PageContainer = styled(Box)(({ theme }) => ({
@@ -63,14 +64,14 @@ const CarouselContainer = styled(Box)(({ theme }) => ({
 
 const FormSection = styled(Box)(({ theme }) => ({
   width: '55%',
-  padding: theme.spacing(6, 6),
+  padding: theme.spacing(4, 6),
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'center',
+  justifyContent: 'flex-start',
   alignItems: 'center',
   [theme.breakpoints.down('md')]: {
     width: '100%',
-    padding: theme.spacing(4)
+    padding: theme.spacing(3)
   }
 }));
 
@@ -78,12 +79,12 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  marginBottom: theme.spacing(6),
+  marginBottom: theme.spacing(3),
   width: '100%'
 }));
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
+  marginBottom: theme.spacing(1.5),
   '& .MuiOutlinedInput-root': {
     borderRadius: '12px',
     height: '50px',
@@ -111,7 +112,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   }
 }));
 
-const StyledMultilineTextField = styled(TextField)(({ theme }) => ({
+const StyledTextFieldMultiline = styled(TextField)(({ theme }) => ({
   marginBottom: theme.spacing(2),
   '& .MuiOutlinedInput-root': {
     borderRadius: '12px',
@@ -170,7 +171,7 @@ const CarouselContent = styled(Box)(({ theme }) => ({
   position: 'relative',
 }));
 
-const CarouselSlide = styled(Box)<{ active: boolean }>(({ theme, active }) => ({
+const CarouselSlide = styled(Box)<{ active: string }>(({ theme, active }) => ({
   position: 'absolute',
   top: 0,
   left: 0,
@@ -180,41 +181,21 @@ const CarouselSlide = styled(Box)<{ active: boolean }>(({ theme, active }) => ({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  opacity: active ? 1 : 0,
-  transform: active ? 'translateY(0)' : 'translateY(20px)',
+  opacity: active === "true" ? 1 : 0,
+  transform: active === "true" ? 'translateY(0)' : 'translateY(20px)',
   transition: 'opacity 0.6s ease, transform 0.6s ease',
-  padding: theme.spacing(6)
+  padding: theme.spacing(6),
+  paddingTop: theme.spacing(10)
 }));
 
 const IllustrationContainer = styled(Box)(({ theme }) => ({
   width: '75%',
-  height: '60%',
+  height: '55%',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  marginTop: theme.spacing(6),
   marginBottom: theme.spacing(4)
-}));
-
-const TagLine = styled(Typography)(({ theme }) => ({
-  position: 'relative',
-  fontWeight: 600,
-  color: '#111',
-  fontSize: '0.9rem',
-  letterSpacing: '0.5px',
-  textTransform: 'uppercase',
-  marginBottom: theme.spacing(2),
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    bottom: -8,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 40,
-    height: 3,
-    backgroundColor: '#000',
-    borderRadius: 2
-  },
-  animation: 'fadeIn 0.8s ease-in-out'
 }));
 
 const Feature = styled(Box)(({ theme }) => ({
@@ -236,6 +217,23 @@ const ScrollableFormContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
+  maxHeight: '70vh',
+  overflowY: 'auto',
+  paddingRight: '16px',
+  '&::-webkit-scrollbar': {
+    width: '8px'
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#f1f1f1',
+    borderRadius: '10px'
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#c1c1c1',
+    borderRadius: '10px'
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: '#a8a8a8'
+  }
 }));
 
 // Add CSS keyframes for animations
@@ -264,49 +262,50 @@ const GlobalStyles = () => {
 
 const carouselItems = [
   {
-    image: '/illustrations/yoga.svg',
+    image: '/illustrations/yoga.png',
     title: 'Make your work easier and organized',
     description: 'Simplify your workflow and boost your productivity with PromptLab.',
     tagline: 'Effortless Productivity',
     feature: 'Smart Design'
   },
   {
-    image: '/illustrations/work.svg',
-    title: 'Collaborate with your team effectively',
-    description: 'Share and manage prompts with your team members seamlessly.',
-    tagline: 'Seamless Collaboration',
-    feature: 'Team Workflow'
-  },
-  {
-    image: '/illustrations/design.svg',
+    image: '/illustrations/versioning3.png',
     title: 'Version control for your AI prompts',
     description: 'Track changes and manage different versions of your prompts easily.',
     tagline: 'Intelligent Versioning',
     feature: 'Progress Tracking'
+  },
+  {
+    image: '/illustrations/tst4.png',
+    title: 'Collaborate with your team effectively',
+    description: 'Share and manage prompts with your team members seamlessly.',
+    tagline: 'Seamless Collaboration',
+    feature: 'Team Workflow'
   }
 ];
 
 const Register: React.FC = () => {
-  const { register } = useAuth();
+  const { register, error } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RegisterData>({
     username: '',
     email: '',
     password: '',
-    confirmPassword: '',
     full_name: '',
-    bio: '',
-    terms: false
+    bio: ''
   });
   
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   // Auto-rotate carousel
   useEffect(() => {
@@ -329,62 +328,110 @@ const Register: React.FC = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear password error when user types
-    if (name === 'password' || name === 'confirmPassword') {
-      setPasswordError(null);
+    // Clear validation error when user types
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+
+    // Clear any existing registration error when user types
+    if (registrationError) {
+      setRegistrationError(null);
+    }
+  };
+  
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPassword(e.target.value);
+    
+    // Clear validation error
+    if (formErrors.confirmPassword) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.confirmPassword;
+        return newErrors;
+      });
     }
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.checked }));
+  const handleTermsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTermsAccepted(e.target.checked);
+    if (formErrors.terms) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.terms;
+        return newErrors;
+      });
+    }
   };
   
-  const validateForm = () => {
-    // Validate password
-    if (formData.password.length < 8) {
-      setPasswordError('Password must be at least 8 characters long');
-      return false;
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Username validation
+    if (!formData.username) {
+      errors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      errors.username = 'Username must be at least 3 characters';
     }
     
-    if (formData.password !== formData.confirmPassword) {
-      setPasswordError('Passwords do not match');
-      return false;
+    // Email validation
+    if (!formData.email) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Email is invalid';
     }
     
-    if (!formData.terms) {
-      setError('You must agree to the Terms & Conditions');
-      return false;
+    // Password validation
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
     }
     
-    return true;
+    // Confirm password validation
+    if (formData.password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Terms validation
+    if (!termsAccepted) {
+      errors.terms = 'You must agree to the Terms & Conditions';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     
     if (!validateForm()) {
       return;
     }
     
-    setLoading(true);
-    
     try {
-      await register(
-        formData.username,
-        formData.email,
-        formData.password,
-        formData.full_name,
-        formData.bio
-      );
+      setLoading(true);
+      setRegistrationError(null);
       
-      navigate('/');
+      await register(formData);
+      setRegistrationSuccess(true);
+      
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { message: 'Registration successful! Please login with your new account.' }
+        });
+      }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      setRegistrationError(err.message || 'Registration failed. Please try again.');
       setLoading(false);
     }
   };
@@ -400,7 +447,7 @@ const Register: React.FC = () => {
               {carouselItems.map((item, index) => (
                 <CarouselSlide 
                   key={index}
-                  active={index === activeStep}
+                  active={index === activeStep ? "true" : "false"}
                 >
                   <IllustrationContainer sx={{ animation: 'fadeScale 1s ease-in-out' }}>
                     <Box 
@@ -412,7 +459,7 @@ const Register: React.FC = () => {
                         target.onerror = null;
                         target.src = '/logo192.png';
                       }}
-                      sx={{ 
+                      sx={{
                         maxWidth: '100%',
                         maxHeight: '100%',
                         objectFit: 'contain'
@@ -535,233 +582,259 @@ const Register: React.FC = () => {
           Create your account
         </Typography>
         
-        <Typography variant="body1" sx={{ mb: 3, color: '#666', textAlign: 'center' }}>
+        <Typography variant="body1" sx={{ mb: 2, color: '#666', textAlign: 'center' }}>
           Join thousands of users collaborating on AI prompts
         </Typography>
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 2, width: '100%', maxWidth: 560 }}>
+          <Alert severity="error" sx={{ mb: 2, borderRadius: 2, width: '100%', maxWidth: 560 }}>
             {error}
           </Alert>
         )}
         
-        <ScrollableFormContainer>
-          <Box component="form" onSubmit={handleSubmit} sx={{ 
+        {registrationError && (
+          <Alert severity="error" sx={{ mb: 2, borderRadius: 2, width: '100%', maxWidth: 560 }}>
+            {registrationError}
+          </Alert>
+        )}
+        
+        {registrationSuccess && (
+          <Alert severity="success" sx={{ mb: 2, borderRadius: 2, width: '100%', maxWidth: 560 }}>
+            Registration successful! Redirecting to login...
+          </Alert>
+        )}
+        
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ 
             width: '100%', 
             maxWidth: 560,
-            mx: 'auto'
-          }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  required
-                  fullWidth
-                  id="full_name"
-                  label="Full Name"
-                  name="full_name"
-                  autoComplete="name"
-                  value={formData.full_name}
-                  onChange={handleInputChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  required
-                  fullWidth
-                  id="username"
-                  label="Username"
-                  name="username"
-                  autoComplete="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <StyledTextField
-                  required
-                  fullWidth
-                  id="email"
-                  label="Email Address"
-                  name="email"
-                  autoComplete="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  required
-                  fullWidth
-                  name="password"
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  autoComplete="new-password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  error={!!passwordError}
-                  helperText={passwordError || 'Min 8 characters'}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle password visibility"
-                          onClick={handleClickShowPassword}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  required
-                  fullWidth
-                  name="confirmPassword"
-                  label="Confirm Password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  id="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  error={!!passwordError}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle confirm password visibility"
-                          onClick={handleClickShowConfirmPassword}
-                          edge="end"
-                        >
-                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <StyledMultilineTextField
-                  fullWidth
-                  name="bio"
-                  label="Bio (Optional)"
-                  multiline
-                  rows={3}
-                  value={formData.bio}
-                  onChange={handleInputChange}
-                  placeholder="Tell us about yourself..."
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Checkbox 
-                      name="terms" 
-                      checked={formData.terms} 
-                      onChange={handleCheckboxChange} 
-                      sx={{
-                        color: '#333',
-                        '&.Mui-checked': {
-                          color: '#333',
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      I agree to the {' '}
-                      <Link component={RouterLink} to="/terms" sx={{ color: '#333', textDecoration: 'none', fontWeight: 600, '&:hover': { color: '#000' } }}>
-                        Terms & Conditions
-                      </Link>
-                    </Typography>
-                  }
-                />
-              </Grid>
-            </Grid>
-            
-            <Button
-              type="submit"
+            mx: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            animation: 'fadeIn 1s ease-in-out',
+          }}
+        >
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, width: '100%' }}>
+            <StyledTextField
+              required
               fullWidth
-              disabled={loading}
-              sx={{ 
-                py: 1.5,
-                mt: 2,
-                mb: 2,
-                fontWeight: 600,
-                textTransform: 'none',
-                borderRadius: 12,
-                boxShadow: 'none',
-                backgroundColor: '#333',
-                color: '#fff',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  backgroundColor: '#000',
-                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                }
+              name="username"
+              label="Username"
+              autoComplete="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              error={!!formErrors.username}
+              helperText={formErrors.username}
+              InputLabelProps={{
+                shrink: true,
               }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Create Account'}
-            </Button>
+              disabled={loading || registrationSuccess}
+            />
             
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <Divider sx={{ flex: 1 }} />
-              <Typography variant="body2" sx={{ mx: 2, color: '#888' }}>
-                or continue with
-              </Typography>
-              <Divider sx={{ flex: 1 }} />
-            </Box>
+            <StyledTextField
+              required
+              fullWidth
+              name="email"
+              label="Email Address"
+              type="email"
+              autoComplete="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              error={!!formErrors.email}
+              helperText={formErrors.email}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              disabled={loading || registrationSuccess}
+            />
+          </Box>
+          
+          <StyledTextField
+            fullWidth
+            name="full_name"
+            label="Full Name"
+            autoComplete="name"
+            value={formData.full_name}
+            onChange={handleInputChange}
+            error={!!formErrors.full_name}
+            helperText={formErrors.full_name}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            disabled={loading || registrationSuccess}
+          />
+          
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, width: '100%' }}>
+            <StyledTextField
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={formData.password}
+              onChange={handleInputChange}
+              error={!!formErrors.password}
+              helperText={formErrors.password}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                      size="small"
+                      disabled={loading || registrationSuccess}
+                    >
+                      {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              disabled={loading || registrationSuccess}
+            />
             
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 4 }}>
-              <SocialButton aria-label="Google">
-                <GoogleIcon />
-              </SocialButton>
-              <SocialButton aria-label="Apple">
-                <AppleIcon />
-              </SocialButton>
-              <SocialButton aria-label="Facebook">
-                <FacebookIcon />
-              </SocialButton>
-            </Box>
-            
-            <Box sx={{ textAlign: 'center' }}>
+            <StyledTextField
+              required
+              fullWidth
+              name="confirmPassword"
+              label="Confirm Password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={handleConfirmPasswordChange}
+              error={!!formErrors.confirmPassword}
+              helperText={formErrors.confirmPassword}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle confirm password visibility"
+                      onClick={handleClickShowConfirmPassword}
+                      edge="end"
+                      size="small"
+                      disabled={loading || registrationSuccess}
+                    >
+                      {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              disabled={loading || registrationSuccess}
+            />
+          </Box>
+          
+          <StyledTextFieldMultiline
+            fullWidth
+            name="bio"
+            label="Bio"
+            multiline
+            rows={2}
+            value={formData.bio}
+            onChange={handleInputChange}
+            error={!!formErrors.bio}
+            helperText={formErrors.bio}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            disabled={loading || registrationSuccess}
+          />
+          
+          <FormControlLabel
+            control={
+              <Checkbox 
+                checked={termsAccepted} 
+                onChange={handleTermsChange} 
+                sx={{
+                  color: '#333',
+                  '&.Mui-checked': {
+                    color: '#333',
+                  },
+                }}
+                disabled={loading || registrationSuccess}
+              />
+            }
+            label={
               <Typography variant="body2" sx={{ color: '#666' }}>
-                Already have an account?{' '}
-                <Link component={RouterLink} to="/login" sx={{ color: '#333', textDecoration: 'none', fontWeight: 600, '&:hover': { color: '#000' } }}>
-                  Sign in
+                I agree to the {' '}
+                <Link component={RouterLink} to="/terms" sx={{ color: '#333', textDecoration: 'none', fontWeight: 600, '&:hover': { color: '#000' } }}>
+                  Terms & Conditions
                 </Link>
               </Typography>
-            </Box>
+            }
+          />
+          {formErrors.terms && (
+            <Typography color="error" variant="caption" sx={{ display: 'block', ml: 2, mb: 1 }}>
+              {formErrors.terms}
+            </Typography>
+          )}
+          
+          <LoadingButton
+            type="submit"
+            fullWidth
+            loading={loading}
+            loadingIndicator="Creating account..."
+            disabled={loading || registrationSuccess}
+            sx={{ 
+              py: 1.5,
+              mt: 1,
+              mb: 1.5,
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: 12,
+              boxShadow: 'none',
+              backgroundColor: '#333',
+              color: '#fff',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: '#000',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                transform: 'translateY(-2px)',
+              }
+            }}
+          >
+            Create Account
+          </LoadingButton>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', my: 1.5 }}>
+            <Divider sx={{ flex: 1 }} />
+            <Typography variant="body2" sx={{ mx: 2, color: '#888' }}>
+              or continue with
+            </Typography>
+            <Divider sx={{ flex: 1 }} />
           </Box>
-        </ScrollableFormContainer>
+          
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 2 }}>
+            <SocialButton aria-label="Google">
+              <GoogleIcon />
+            </SocialButton>
+            <SocialButton aria-label="Apple">
+              <AppleIcon />
+            </SocialButton>
+            <SocialButton aria-label="Facebook">
+              <FacebookIcon />
+            </SocialButton>
+          </Box>
+          
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: '#666' }}>
+              Already have an account?{' '}
+              <Link component={RouterLink} to="/login" sx={{ color: '#333', textDecoration: 'none', fontWeight: 600, '&:hover': { color: '#000' } }}>
+                Sign in
+              </Link>
+            </Typography>
+          </Box>
+        </Box>
       </FormSection>
     </PageContainer>
   );
 };
 
-export default Register; 
+export default Register;

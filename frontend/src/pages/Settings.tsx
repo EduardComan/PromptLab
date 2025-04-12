@@ -37,6 +37,7 @@ import {
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import UserService from '../services/UserService';
 
 // Tab panel component for tab content
 interface TabPanelProps {
@@ -190,38 +191,29 @@ const ProfileSettings: React.FC = () => {
       setError(null);
       
       // Update profile information
-      const profileResponse = await api.put('/accounts/profile', {
-        username: formData.username,
+      const updatedUser = await UserService.updateProfile({
+        email: formData.email,
         full_name: formData.full_name,
         bio: formData.bio
       });
       
       // Upload profile image if changed
       if (profileImage) {
-        const formData = new FormData();
-        formData.append('image', profileImage);
-        
-        const imageResponse = await api.post('/accounts/profile-image', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        const imageResult = await UserService.uploadProfileImage(profileImage);
         
         // Update user context with new image
-        if (imageResponse.data.image) {
+        if (imageResult.profile_image_id) {
           updateUser({
-            ...user!,
-            profile_image_id: imageResponse.data.image.id
+            profile_image_id: imageResult.profile_image_id
           });
         }
       }
       
       // Update user context with new profile info
       updateUser({
-        ...user!,
-        username: formData.username,
-        full_name: formData.full_name,
-        bio: formData.bio
+        email: updatedUser.email,
+        full_name: updatedUser.full_name,
+        bio: updatedUser.bio
       });
       
       setSuccess(true);

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
+import { validationResult, ValidationError } from 'express-validator';
 
 export const validateRequest = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
@@ -7,10 +7,17 @@ export const validateRequest = (req: Request, res: Response, next: NextFunction)
   if (!errors.isEmpty()) {
     res.status(400).json({
       message: 'Validation failed',
-      errors: errors.array().map(error => ({
-        field: error.param,
-        message: error.msg
-      }))
+      errors: errors.array().map((error: ValidationError) => {
+        // Handle both newer and older versions of express-validator
+        const field = 'path' in error 
+          ? error.path 
+          : ('param' in error ? error.param : 'unknown');
+        
+        return {
+          field,
+          message: error.msg
+        };
+      })
     });
     return;
   }

@@ -64,51 +64,20 @@ const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, open, handleDrawerClose 
            (path !== '/' && location.pathname.startsWith(path));
   };
   
-  return (
-    <Drawer
-      variant={isMobile ? 'temporary' : 'permanent'}
-      open={isMobile ? open : true}
-      onClose={handleDrawerClose}
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        [`& .MuiDrawer-paper`]: { 
-          width: drawerWidth, 
-          boxSizing: 'border-box',
-          backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff' 
-        },
-      }}
-    >
-      <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        {isMobile && (
-          <IconButton onClick={handleDrawerClose}>
-            <ChevronLeftIcon />
-          </IconButton>
-        )}
+  const drawer = (
+    <>
+      <Toolbar sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'flex-end', 
+        px: [1] 
+      }}>
+        <IconButton onClick={handleDrawerClose}>
+          <ChevronLeftIcon />
+        </IconButton>
       </Toolbar>
       
       <Divider />
-      
-      <Box sx={{ px: 2, py: 2 }}>
-        <Button
-          variant="contained"
-          fullWidth
-          startIcon={<AddIcon />}
-          onClick={() => handleNavigate('/repositories/new')}
-          sx={{ 
-            py: 1,
-            fontWeight: 500,
-            textTransform: 'none',
-            boxShadow: 'none',
-            '&:hover': {
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-              transform: 'translateY(-2px)'
-            }
-          }}
-        >
-          New Repository
-        </Button>
-      </Box>
       
       <List>
         {menuItems.map((item) => (
@@ -144,6 +113,23 @@ const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, open, handleDrawerClose 
       {isAuthenticated && (
         <>
           <Divider sx={{ my: 1 }} />
+          
+          <Box sx={{ px: 2, pb: 2 }}>
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/repositories/new')}
+              sx={{ 
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: 2,
+              }}
+            >
+              Create Repository
+            </Button>
+          </Box>
+          
           <List>
             {authenticatedMenuItems.map((item) => (
               <ListItem key={item.text} disablePadding>
@@ -176,6 +162,24 @@ const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, open, handleDrawerClose 
           </List>
         </>
       )}
+    </>
+  );
+
+  return (
+    <Drawer
+      variant={isMobile ? 'temporary' : 'permanent'}
+      open={isMobile ? open : true}
+      onClose={handleDrawerClose}
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: drawerWidth,
+          boxSizing: 'border-box',
+        },
+      }}
+    >
+      {drawer}
     </Drawer>
   );
 };

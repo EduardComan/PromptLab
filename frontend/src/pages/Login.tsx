@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
+import {
+  Box,
   Typography, 
   TextField, 
-  Button, 
-  Link, 
+  Button,
+  Link,
   Alert,
   CircularProgress,
   useTheme,
@@ -15,7 +15,7 @@ import {
   Divider,
   Card
 } from '@mui/material';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { RocketLaunch as RocketIcon } from '@mui/icons-material';
 import Visibility from '@mui/icons-material/Visibility';
@@ -23,6 +23,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import GoogleIcon from '@mui/icons-material/Google';
 import AppleIcon from '@mui/icons-material/Apple';
 import FacebookIcon from '@mui/icons-material/Facebook';
+import { LoadingButton } from '@mui/lab';
 
 // Styled components
 const PageContainer = styled(Box)(({ theme }) => ({
@@ -63,6 +64,8 @@ const FormSection = styled(Box)(({ theme }) => ({
   padding: theme.spacing(8, 6),
   display: 'flex',
   flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
   [theme.breakpoints.down('md')]: {
     width: '100%',
     padding: theme.spacing(4)
@@ -73,7 +76,7 @@ const LogoContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  marginBottom: theme.spacing(8),
+  marginBottom: theme.spacing(6),
   width: '100%'
 }));
 
@@ -95,7 +98,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     '& input': {
       color: '#000',
       fontWeight: 500,
-    },
+    }
   },
   '& .MuiInputLabel-root': {
     transform: 'translate(14px, -9px) scale(0.75)',
@@ -103,6 +106,9 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   },
   '& .MuiInputLabel-root.Mui-focused': {
     color: '#333',
+  },
+  '& input::-ms-reveal, & input::-ms-clear': {
+    display: 'none'
   }
 }));
 
@@ -137,7 +143,7 @@ const CarouselContent = styled(Box)(({ theme }) => ({
   position: 'relative',
 }));
 
-const CarouselSlide = styled(Box)<{ active: boolean }>(({ theme, active }) => ({
+const CarouselSlide = styled(Box)<{ active: string }>(({ theme, active }) => ({
   position: 'absolute',
   top: 0,
   left: 0,
@@ -147,8 +153,8 @@ const CarouselSlide = styled(Box)<{ active: boolean }>(({ theme, active }) => ({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  opacity: active ? 1 : 0,
-  transform: active ? 'translateY(0)' : 'translateY(20px)',
+  opacity: active === "true" ? 1 : 0,
+  transform: active === "true" ? 'translateY(0)' : 'translateY(20px)',
   transition: 'opacity 0.6s ease, transform 0.6s ease',
   padding: theme.spacing(6)
 }));
@@ -160,28 +166,6 @@ const IllustrationContainer = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   marginBottom: theme.spacing(4)
-}));
-
-const TagLine = styled(Typography)(({ theme }) => ({
-  position: 'relative',
-  fontWeight: 600,
-  color: '#111',
-  fontSize: '0.9rem',
-  letterSpacing: '0.5px',
-  textTransform: 'uppercase',
-  marginBottom: theme.spacing(2),
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    bottom: -8,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 40,
-    height: 3,
-    backgroundColor: '#000',
-    borderRadius: 2
-  },
-  animation: 'fadeIn 0.8s ease-in-out'
 }));
 
 const Feature = styled(Box)(({ theme }) => ({
@@ -225,48 +209,58 @@ const GlobalStyles = () => {
 
 const carouselItems = [
   {
-    image: '/illustrations/yoga.svg',
+    image: '/illustrations/yoga.png',
     title: 'Make your work easier and organized',
     description: 'Simplify your workflow and boost your productivity with PromptLab.',
     tagline: 'Effortless Productivity',
     feature: 'Smart Design'
   },
   {
-    image: '/illustrations/work.svg',
-    title: 'Collaborate with your team effectively',
-    description: 'Share and manage prompts with your team members seamlessly.',
-    tagline: 'Seamless Collaboration',
-    feature: 'Team Workflow'
-  },
-  {
-    image: '/illustrations/design.svg',
+    image: '/illustrations/versioning3.png',
     title: 'Version control for your AI prompts',
     description: 'Track changes and manage different versions of your prompts easily.',
     tagline: 'Intelligent Versioning',
     feature: 'Progress Tracking'
+  },
+  {
+    image: '/illustrations/tst4.png',
+    title: 'Collaborate with your team effectively',
+    description: 'Share and manage prompts with your team members seamlessly.',
+    tagline: 'Seamless Collaboration',
+    feature: 'Team Workflow'
   }
 ];
 
 const Login: React.FC = () => {
-  const { login } = useAuth();
+  const { login, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Check for redirected messages in location state
+  useEffect(() => {
+    if (location.state && location.state.message) {
+      // Could handle registration success or other messages
+    }
+  }, [location]);
 
   // Auto-rotate carousel
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveStep((prevStep) => (prevStep + 1) % carouselItems.length);
-    }, 6000);
+    }, 7000);
     
     return () => clearInterval(interval);
   }, []);
@@ -281,18 +275,78 @@ const Login: React.FC = () => {
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear validation error when user types
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+    
+    // Clear any login errors when user starts typing again
+    if (loginError) {
+      setLoginError(null);
+    }
+  };
+  
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Username validation
+    if (!formData.username) {
+      errors.username = 'Username is required';
+    }
+    
+    // Password validation
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!validateForm()) {
+      return;
+    }
     
     try {
-      await login(formData.email, formData.password);
-      navigate('/');
-    } catch (err) {
-      setError('Invalid email or password. Please try again.');
+      setLoading(true);
+      setLoginError(null);
+      
+      // Ensure we only pass username and password exactly as expected by the backend
+      await login(formData.username, formData.password);
+      
+      setLoginSuccess(true);
+      
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        navigate('/');
+      }, 1000);
+    } catch (err: any) {
+      console.error('Login error:', err);
+      
+      // Display user-friendly error message
+      const errorMessage = err.message || 'Failed to login. Please check your credentials.';
+      
+      // Set more specific error messages for common issues
+      if (errorMessage.includes('credentials')) {
+        setLoginError('Invalid username or password. Please try again.');
+      } else if (errorMessage.includes('server')) {
+        setLoginError('Server error. Please try again later.');
+      } else if (errorMessage.includes('connection')) {
+        setLoginError('Connection error. Please check your internet connection.');
+      } else {
+        setLoginError(errorMessage);
+      }
+      
       setLoading(false);
     }
   };
@@ -308,7 +362,7 @@ const Login: React.FC = () => {
               {carouselItems.map((item, index) => (
                 <CarouselSlide 
                   key={index}
-                  active={index === activeStep}
+                  active={index === activeStep ? "true" : "false"}
                 >
                   <IllustrationContainer sx={{ animation: 'fadeScale 1s ease-in-out' }}>
                     <Box 
@@ -320,7 +374,7 @@ const Login: React.FC = () => {
                         target.onerror = null;
                         target.src = '/logo192.png';
                       }}
-                      sx={{ 
+                      sx={{
                         maxWidth: '100%',
                         maxHeight: '100%',
                         objectFit: 'contain'
@@ -448,24 +502,34 @@ const Login: React.FC = () => {
         </Typography>
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2, width: '100%', maxWidth: 400 }}>
             {error}
+          </Alert>
+        )}
+        
+        {loginError && (
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2, width: '100%', maxWidth: 400 }}>
+            {loginError}
           </Alert>
         )}
         
         <Box component="form" onSubmit={handleSubmit} sx={{ 
           animation: 'fadeIn 1s ease-in-out',
+          width: '100%',
+          maxWidth: 400
         }}>
           <StyledTextField
             required
             fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
+            id="username"
+            label="Username"
+            name="username"
+            autoComplete="username"
             autoFocus
-            value={formData.email}
+            value={formData.username}
             onChange={handleInputChange}
+            error={!!formErrors.username}
+            helperText={formErrors.username}
             InputLabelProps={{
               shrink: true,
             }}
@@ -484,6 +548,8 @@ const Login: React.FC = () => {
             autoComplete="current-password"
             value={formData.password}
             onChange={handleInputChange}
+            error={!!formErrors.password}
+            helperText={formErrors.password}
             InputLabelProps={{
               shrink: true,
             }}
@@ -513,46 +579,44 @@ const Login: React.FC = () => {
               component={RouterLink} 
               to="/forgot-password" 
               sx={{ 
-                color: '#666', 
+                color: '#333', 
                 textDecoration: 'none', 
-                fontWeight: 500, 
-                fontSize: '0.9rem',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                transition: 'all 0.2s ease',
+                fontWeight: 600, 
                 '&:hover': { 
-                  color: '#000',
-                  backgroundColor: 'rgba(0,0,0,0.05)'
+                  color: '#000' 
                 } 
               }}
             >
-              Forgot Password?
+              Forgot password?
             </Link>
           </Box>
           
-          <Button
+          <LoadingButton
             type="submit"
             fullWidth
-            disabled={loading}
-            sx={{ 
-              py: 1.5,
-              mt: 2,
+            loading={loading}
+            loadingIndicator="Signing in..."
+            variant="contained"
+            disabled={loginSuccess}
+            sx={{
+              mt: 3,
               mb: 2,
-              fontWeight: 600,
-              textTransform: 'none',
-              borderRadius: 12,
-              boxShadow: 'none',
-              backgroundColor: '#333',
               color: '#fff',
-              transition: 'all 0.3s ease',
+              borderRadius: 5,
+              backgroundColor: '#000',
+              padding: '12px',
+              fontSize: '1rem',
+              fontWeight: 600,
               '&:hover': {
-                backgroundColor: '#000',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-              }
+                backgroundColor: '#333',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
+              },
+              transition: 'all 0.2s ease'
             }}
           >
-            {loading ? <CircularProgress size={24} /> : 'Sign In'}
-          </Button>
+            Sign In
+          </LoadingButton>
           
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <Divider sx={{ flex: 1 }} />

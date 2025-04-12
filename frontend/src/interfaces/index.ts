@@ -1,11 +1,17 @@
 // User interfaces
 export interface User {
   id: string;
-  name: string;
+  username: string;
   email: string;
-  avatarUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  full_name?: string;
+  bio?: string;
+  profile_image_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  profile_image?: {
+    id: string;
+    mime_type: string;
+  };
 }
 
 export interface Account {
@@ -172,6 +178,8 @@ export interface RegisterData {
   username: string;
   email: string;
   password: string;
+  full_name?: string;
+  bio?: string;
 }
 
 export interface AuthResponse {

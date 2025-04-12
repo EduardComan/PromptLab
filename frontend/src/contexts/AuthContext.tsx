@@ -1,17 +1,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
-
-// Define the User type
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  full_name?: string;
-  bio?: string;
-  profile_image_id?: string;
-  is_active: boolean;
-}
+import { User, RegisterData } from '../interfaces';
+import AuthService from '../services/AuthService';
+import UserService from '../services/UserService';
 
 // Define the AuthContextType
 interface AuthContextType {
@@ -20,8 +12,8 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string, full_name?: string, bio?: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
+  register: (registerData: RegisterData) => Promise<void>;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
 }
@@ -65,8 +57,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } else {
             // Valid token, load user
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            const response = await axios.get('/accounts/me');
-            setUser(response.data.user);
+            const userData = await UserService.getCurrentUser();
+            setUser(userData);
           }
         } catch (err) {
           // Invalid token
@@ -83,35 +75,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [token]);
 
   // Login function
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     setError(null);
     try {
-      const response = await axios.post('/accounts/login', { email, password });
-      const { token: newToken, user: userData } = response.data;
+      const response = await AuthService.login(username, password);
+      const { token: newToken, user: userData } = response;
       
       localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(userData);
+      
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+      const errorMessage = err.message || 'Login failed. Please check your credentials.';
+      console.error('Login error:', errorMessage);
+      setError(errorMessage);
       throw err;
     }
   };
 
   // Register function
-  const register = async (username: string, email: string, password: string, full_name?: string, bio?: string) => {
+  const register = async (registerData: RegisterData) => {
     setError(null);
     try {
-      const response = await axios.post('/accounts/register', { username, email, password, full_name, bio });
-      const { token: newToken, user: userData } = response.data;
+      const response = await AuthService.register(registerData);
+      const { token: newToken, user: userData } = response;
       
       localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(userData);
+      
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed');
+      const errorMessage = err.message || 'Registration failed. Please try with different information.';
+      console.error('Registration error:', errorMessage);
+      setError(errorMessage);
       throw err;
     }
   };

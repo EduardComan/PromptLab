@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
-import { PromptVersion, Prompt, PromptRun, Account, sequelize } from '../models';
+import prisma from '../lib/prisma';
 import logger from '../utils/logger';
 
 // Environment variable for the LLM service URL
 const LLM_SERVICE_URL = process.env.LLM_SERVICE_URL || 'http://localhost:5000';
 
 // Get available LLM models
-export const getAvailableModels = async (req: Request, res: Response): Promise<void> => {
+export const getAvailableModels = async (_req: Request, res: Response): Promise<void> => {
   try {
     // Call the LLM service to get available models
     const response = await axios.get(`${LLM_SERVICE_URL}/models`);
@@ -15,7 +15,7 @@ export const getAvailableModels = async (req: Request, res: Response): Promise<v
     res.status(200).json({
       models: response.data.models
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching available models:', error);
     res.status(500).json({
       message: 'Error fetching available models',
@@ -26,21 +26,17 @@ export const getAvailableModels = async (req: Request, res: Response): Promise<v
 
 // Execute a prompt
 export const executePrompt = async (req: Request, res: Response): Promise<void> => {
-  const transaction = await sequelize.transaction();
-  
   try {
     const { promptId, versionId, input, model, parameters } = req.body;
     const userId = req.user?.id;
     
     // Validate required fields
     if (!promptId && !versionId) {
-      await transaction.rollback();
       res.status(400).json({ message: 'Either promptId or versionId is required' });
       return;
     }
     
     if (!model) {
-      await transaction.rollback();
       res.status(400).json({ message: 'Model is required' });
       return;
     }
@@ -48,39 +44,30 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
     // Get the prompt version
     let promptVersion;
     if (versionId) {
-      promptVersion = await PromptVersion.findByPk(versionId, {
-        include: [
-          {
-            model: Prompt,
-            as: 'prompt'
-          }
-        ],
-        transaction
+      promptVersion = await prisma.promptVersion.findUnique({
+        where: { id: versionId },
+        include: {
+          prompt: true
+        }
       });
       
       if (!promptVersion) {
-        await transaction.rollback();
         res.status(404).json({ message: 'Prompt version not found' });
         return;
       }
     } else {
       // Get latest version of the prompt
-      promptVersion = await PromptVersion.findOne({
+      promptVersion = await prisma.promptVersion.findFirst({
         where: { 
           prompt_id: promptId 
         },
-        include: [
-          {
-            model: Prompt,
-            as: 'prompt'
-          }
-        ],
-        order: [['version_number', 'DESC']],
-        transaction
+        include: {
+          prompt: true
+        },
+        orderBy: { version_number: 'desc' }
       });
       
       if (!promptVersion) {
-        await transaction.rollback();
         res.status(404).json({ message: 'No versions found for this prompt' });
         return;
       }
@@ -90,15 +77,27 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
     const prompt = promptVersion.prompt;
     
     // Check if the prompt has chat format (messages array) or text format
-    const isChatFormat = Array.isArray(promptVersion.content);
+    const contentSnapshot = promptVersion.content_snapshot;
+    const isChatFormat = contentSnapshot.startsWith('[') && contentSnapshot.endsWith(']');
+    let parsedContent;
+    
+    try {
+      if (isChatFormat) {
+        parsedContent = JSON.parse(contentSnapshot);
+      }
+    } catch (err) {
+      // If parsing fails, treat as text format
+      parsedContent = null;
+    }
     
     // Prepare the request to the LLM service
     let llmRequest;
     let llmEndpoint;
+    let renderedPrompt;
     
-    if (isChatFormat) {
+    if (isChatFormat && Array.isArray(parsedContent)) {
       // Handle chat format - replace variables in messages
-      const messages = promptVersion.content.map((message: any) => {
+      const messages = parsedContent.map((message: any) => {
         let content = message.content;
         
         // Replace variables in the content if input is provided
@@ -121,9 +120,10 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
         messages,
         parameters: parameters || {}
       };
+      renderedPrompt = JSON.stringify(messages);
     } else {
       // Handle text format - replace variables in the prompt
-      let promptText = promptVersion.content;
+      let promptText = contentSnapshot;
       
       // Replace variables in the content if input is provided
       if (input && typeof input === 'object') {
@@ -139,6 +139,7 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
         prompt: promptText,
         parameters: parameters || {}
       };
+      renderedPrompt = promptText;
     }
     
     // Call the LLM service
@@ -151,26 +152,25 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
     const { output, metrics, status, log } = llmResponse.data;
     
     // Create a prompt run record
-    const promptRun = await PromptRun.create({
-      prompt_id: prompt.id,
-      version_id: promptVersion.id,
-      user_id: userId,
-      model,
-      input_variables: input,
-      rendered_prompt: isChatFormat ? JSON.stringify(llmRequest.messages) : llmRequest.prompt,
-      output,
-      success: status === 'success',
-      error_message: status === 'error' ? output : null,
-      metrics: {
-        processing_time_ms: metrics.processing_time_ms,
-        tokens_input: metrics.tokens_input,
-        tokens_output: metrics.tokens_output,
-        model_parameters: parameters || {}
-      },
-      created_at: new Date()
-    }, { transaction });
-    
-    await transaction.commit();
+    const promptRun = await prisma.promptRun.create({
+      data: {
+        prompt_id: prompt.id,
+        version_id: promptVersion.id,
+        user_id: userId,
+        model,
+        input_variables: input,
+        rendered_prompt: renderedPrompt,
+        output,
+        success: status === 'success',
+        error_message: status === 'error' ? output : null,
+        metadata: {
+          processing_time_ms: metrics?.processing_time_ms,
+          tokens_input: metrics?.tokens_input,
+          tokens_output: metrics?.tokens_output,
+          model_parameters: parameters || {}
+        }
+      }
+    });
     
     res.status(200).json({
       status: 'success',
@@ -179,8 +179,7 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
       metrics,
       log
     });
-  } catch (error) {
-    await transaction.rollback();
+  } catch (error: any) {
     logger.error('Error executing prompt:', error);
     
     // Handle LLM service errors
@@ -219,24 +218,28 @@ export const getPromptRun = async (req: Request, res: Response): Promise<void> =
   try {
     const { runId } = req.params;
     
-    const run = await PromptRun.findByPk(runId, {
-      include: [
-        {
-          model: Prompt,
-          as: 'prompt',
-          attributes: ['id', 'name']
+    const run = await prisma.promptRun.findUnique({
+      where: { id: runId },
+      include: {
+        prompt: {
+          select: {
+            id: true,
+            title: true
+          }
         },
-        {
-          model: PromptVersion,
-          as: 'version',
-          attributes: ['id', 'version_number']
+        version: {
+          select: {
+            id: true,
+            version_number: true
+          }
         },
-        {
-          model: Account,
-          as: 'user',
-          attributes: ['id', 'username']
+        user: {
+          select: {
+            id: true,
+            username: true
+          }
         }
-      ]
+      }
     });
     
     if (!run) {
@@ -245,7 +248,7 @@ export const getPromptRun = async (req: Request, res: Response): Promise<void> =
     }
     
     res.status(200).json({ run });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt run:', error);
     res.status(500).json({
       message: 'Error fetching prompt run',
@@ -254,43 +257,36 @@ export const getPromptRun = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// Get prompt run history for a specific prompt
+// Get prompt run history
 export const getPromptRuns = async (req: Request, res: Response): Promise<void> => {
   try {
     const { promptId } = req.params;
     const { limit = 10, page = 1 } = req.query;
     
-    const offset = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit);
+    const offset = (Number(page) - 1) * limitNum;
     
-    const { count, rows } = await PromptRun.findAndCountAll({
+    const totalCount = await prisma.promptRun.count({
+      where: { prompt_id: promptId }
+    });
+    
+    const runs = await prisma.promptRun.findMany({
       where: { prompt_id: promptId },
-      include: [
-        {
-          model: PromptVersion,
-          as: 'version',
-          attributes: ['id', 'version_number']
-        },
-        {
-          model: Account,
-          as: 'user',
-          attributes: ['id', 'username']
-        }
-      ],
-      order: [['created_at', 'DESC']],
-      limit: Number(limit),
-      offset
+      orderBy: { created_at: 'desc' },
+      take: limitNum,
+      skip: offset
     });
     
     res.status(200).json({
-      runs: rows,
+      runs,
       pagination: {
-        total: count,
+        total: totalCount,
         page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(count / Number(limit))
+        limit: limitNum,
+        pages: Math.ceil(totalCount / limitNum)
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt runs:', error);
     res.status(500).json({
       message: 'Error fetching prompt runs',

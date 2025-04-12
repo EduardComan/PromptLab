@@ -1,34 +1,38 @@
 import { Request, Response } from 'express';
-import { Prompt, PromptVersion, Repository, Account, sequelize } from '../models';
+import prisma from '../lib/prisma';
 import logger from '../utils/logger';
-
+import { Prisma } from '@prisma/client';
 // Get prompt by ID
 export const getPromptById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     
-    const prompt = await Prompt.findByPk(id, {
-      include: [
-        {
-          model: Repository,
-          as: 'repository',
-          attributes: ['id', 'name', 'is_public'],
-          include: [
-            {
-              model: Account,
-              as: 'owner_user',
-              attributes: ['id', 'username']
+    const prompt = await prisma.prompt.findUnique({
+      where: { id },
+      include: {
+        repository: {
+          include: {
+            owner_user: {
+              select: {
+                id: true,
+                username: true
+              }
             }
-          ]
+          }
         },
-        {
-          model: PromptVersion,
-          as: 'versions',
-          limit: 1,
-          order: [['version_number', 'DESC']],
-          attributes: ['id', 'content_snapshot', 'version_number', 'created_at']
+        versions: {
+          orderBy: {
+            version_number: 'desc'
+          },
+          take: 1,
+          select: {
+            id: true,
+            content_snapshot: true,
+            version_number: true,
+            created_at: true
+          }
         }
-      ]
+      }
     });
     
     if (!prompt) {
@@ -54,7 +58,7 @@ export const getPromptById = async (req: Request, res: Response): Promise<void> 
       
       if (!isOwner) {
         // Check if user is a collaborator
-        const collaborator = await RepoCollaborator.findOne({
+        const collaborator = await prisma.repoCollaborator.findFirst({
           where: {
             repo_id: repository.id,
             user_id: userId
@@ -69,7 +73,7 @@ export const getPromptById = async (req: Request, res: Response): Promise<void> 
     }
     
     res.status(200).json({ prompt });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt:', error);
     res.status(500).json({
       message: 'Error fetching prompt',
@@ -80,63 +84,67 @@ export const getPromptById = async (req: Request, res: Response): Promise<void> 
 
 // Update prompt
 export const updatePrompt = async (req: Request, res: Response): Promise<void> => {
-  const transaction = await sequelize.transaction();
-  
   try {
     const { id } = req.params;
     const { title, description, content, metadata_json, commitMessage } = req.body;
     const userId = req.user.id;
     
-    // Find the prompt
-    const prompt = await Prompt.findByPk(id, { transaction });
-    
-    if (!prompt) {
-      await transaction.rollback();
-      res.status(404).json({ message: 'Prompt not found' });
-      return;
-    }
-    
-    // Update prompt fields
-    if (title !== undefined) prompt.title = title;
-    if (description !== undefined) prompt.description = description;
-    if (metadata_json !== undefined) prompt.metadata_json = metadata_json;
-    
-    await prompt.save({ transaction });
-    
-    // If content is provided, create a new version
-    if (content !== undefined) {
-      // Get the latest version number
-      const latestVersion = await PromptVersion.findOne({
-        where: { prompt_id: id },
-        order: [['version_number', 'DESC']],
-        transaction
+    // Use Prisma transaction
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Find the prompt
+      const prompt = await tx.prompt.findUnique({
+        where: { id }
       });
       
-      const versionNumber = latestVersion ? latestVersion.version_number + 1 : 1;
+      if (!prompt) {
+        throw new Error('Prompt not found');
+      }
       
-      // Create a new version
-      await PromptVersion.create({
-        prompt_id: id,
-        content_snapshot: content,
-        commit_message: commitMessage || `Updated version ${versionNumber}`,
-        author_id: userId,
-        version_number: versionNumber
-      }, { transaction });
-    }
-    
-    await transaction.commit();
+      // Update prompt fields
+      const updatedPrompt = await tx.prompt.update({
+        where: { id },
+        data: {
+          ...(title !== undefined && { title }),
+          ...(description !== undefined && { description }),
+          ...(metadata_json !== undefined && { metadata_json })
+        }
+      });
+      
+      // If content is provided, create a new version
+      if (content !== undefined) {
+        // Get the latest version number
+        const latestVersion = await tx.promptVersion.findFirst({
+          where: { prompt_id: id },
+          orderBy: { version_number: 'desc' }
+        });
+        
+        const versionNumber = latestVersion ? latestVersion.version_number + 1 : 1;
+        
+        // Create a new version
+        await tx.promptVersion.create({
+          data: {
+            prompt_id: id,
+            content_snapshot: content,
+            commit_message: commitMessage || `Updated version ${versionNumber}`,
+            author_id: userId,
+            version_number: versionNumber
+          }
+        });
+      }
+      
+      return updatedPrompt;
+    });
     
     res.status(200).json({
       message: 'Prompt updated successfully',
       prompt: {
-        id: prompt.id,
-        title: prompt.title,
-        description: prompt.description,
-        updatedAt: prompt.updated_at
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        updatedAt: result.updated_at
       }
     });
-  } catch (error) {
-    await transaction.rollback();
+  } catch (error: any) {
     logger.error('Error updating prompt:', error);
     res.status(500).json({
       message: 'Error updating prompt',
@@ -150,26 +158,29 @@ export const getPromptVersions = async (req: Request, res: Response): Promise<vo
   try {
     const { promptId } = req.params;
     
-    const prompt = await Prompt.findByPk(promptId);
+    const prompt = await prisma.prompt.findUnique({
+      where: { id: promptId }
+    });
     if (!prompt) {
       res.status(404).json({ message: 'Prompt not found' });
       return;
     }
     
-    const versions = await PromptVersion.findAll({
+    const versions = await prisma.promptVersion.findMany({
       where: { prompt_id: promptId },
-      include: [
-        {
-          model: Account,
-          as: 'author',
-          attributes: ['id', 'username']
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true
+          }
         }
-      ],
-      order: [['version_number', 'DESC']]
+      },
+      orderBy: { version_number: 'desc' }
     });
     
     res.status(200).json({ versions });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt versions:', error);
     res.status(500).json({
       message: 'Error fetching prompt versions',
@@ -183,19 +194,24 @@ export const getPromptVersion = async (req: Request, res: Response): Promise<voi
   try {
     const { versionId } = req.params;
     
-    const version = await PromptVersion.findByPk(versionId, {
-      include: [
-        {
-          model: Account,
-          as: 'author',
-          attributes: ['id', 'username']
+    const version = await prisma.promptVersion.findUnique({
+      where: { id: versionId },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true
+          }
         },
-        {
-          model: Prompt,
-          as: 'prompt',
-          attributes: ['id', 'title', 'description', 'metadata_json']
+        prompt: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            metadata_json: true
+          }
         }
-      ]
+      }
     });
     
     if (!version) {
@@ -204,7 +220,7 @@ export const getPromptVersion = async (req: Request, res: Response): Promise<voi
     }
     
     res.status(200).json({ version });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt version:', error);
     res.status(500).json({
       message: 'Error fetching prompt version',
@@ -220,7 +236,9 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
     const userId = req.user?.id;
     
     // Get the prompt
-    const prompt = await Prompt.findByPk(promptId);
+    const prompt = await prisma.prompt.findUnique({
+      where: { id: promptId }
+    });
     if (!prompt) {
       res.status(404).json({ message: 'Prompt not found' });
       return;
@@ -229,15 +247,17 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
     // Get the specific version or latest if not provided
     let promptVersion;
     if (versionId) {
-      promptVersion = await PromptVersion.findByPk(versionId);
+      promptVersion = await prisma.promptVersion.findUnique({
+        where: { id: versionId }
+      });
       if (!promptVersion) {
         res.status(404).json({ message: 'Prompt version not found' });
         return;
       }
     } else {
-      promptVersion = await PromptVersion.findOne({
+      promptVersion = await prisma.promptVersion.findFirst({
         where: { prompt_id: promptId },
-        order: [['version_number', 'DESC']]
+        orderBy: { version_number: 'desc' }
       });
       
       if (!promptVersion) {
@@ -267,19 +287,21 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
       };
       
       // Log the run
-      const promptRun = await PromptRun.create({
-        prompt_id: promptId,
-        version_id: promptVersion.id,
-        user_id: userId,
-        model: model || 'mock-model',
-        input_variables,
-        rendered_prompt: renderedPrompt,
-        output: result.output,
-        success: true,
-        metadata: {
-          tokens_used: result.tokens_used,
-          processing_time_ms: result.processing_time_ms,
-          model_settings: model_settings || {}
+      const promptRun = await prisma.promptRun.create({
+        data: {
+          prompt_id: promptId,
+          version_id: promptVersion.id,
+          user_id: userId,
+          model: model || 'mock-model',
+          input_variables: input_variables,
+          rendered_prompt: renderedPrompt,
+          output: result.output,
+          success: true,
+          metadata: {
+            tokens_used: result.tokens_used,
+            processing_time_ms: result.processing_time_ms,
+            model_settings: model_settings || {}
+          }
         }
       });
       
@@ -288,25 +310,27 @@ export const executePrompt = async (req: Request, res: Response): Promise<void> 
         result,
         run_id: promptRun.id
       });
-    } catch (execError) {
+    } catch (execError: any) {
       // Log the error run
-      await PromptRun.create({
-        prompt_id: promptId,
-        version_id: promptVersion.id,
-        user_id: userId,
-        model: model || 'mock-model',
-        input_variables,
-        rendered_prompt: renderedPrompt,
-        success: false,
-        error_message: execError.message,
-        metadata: {
-          model_settings: model_settings || {}
+      await prisma.promptRun.create({
+        data: {
+          prompt_id: promptId,
+          version_id: promptVersion.id,
+          user_id: userId,
+          model: model || 'mock-model',
+          input_variables: input_variables,
+          rendered_prompt: renderedPrompt,
+          success: false,
+          error_message: execError.message,
+          metadata: {
+            model_settings: model_settings || {}
+          }
         }
       });
       
       throw execError;
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error executing prompt:', error);
     res.status(500).json({
       message: 'Error executing prompt',
@@ -321,25 +345,30 @@ export const getPromptRuns = async (req: Request, res: Response): Promise<void> 
     const { promptId } = req.params;
     const { limit = 10, page = 1 } = req.query;
     
-    const offset = (Number(page) - 1) * Number(limit);
+    const limitNum = Number(limit);
+    const offset = (Number(page) - 1) * limitNum;
     
-    const { count, rows } = await PromptRun.findAndCountAll({
+    const totalCount = await prisma.promptRun.count({
+      where: { prompt_id: promptId }
+    });
+    
+    const runs = await prisma.promptRun.findMany({
       where: { prompt_id: promptId },
-      order: [['created_at', 'DESC']],
-      limit: Number(limit),
-      offset
+      orderBy: { created_at: 'desc' },
+      take: limitNum,
+      skip: offset
     });
     
     res.status(200).json({
-      runs: rows,
+      runs,
       pagination: {
-        total: count,
+        total: totalCount,
         page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(count / Number(limit))
+        limit: limitNum,
+        pages: Math.ceil(totalCount / limitNum)
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt runs:', error);
     res.status(500).json({
       message: 'Error fetching prompt runs',
@@ -353,24 +382,28 @@ export const getPromptRun = async (req: Request, res: Response): Promise<void> =
   try {
     const { runId } = req.params;
     
-    const run = await PromptRun.findByPk(runId, {
-      include: [
-        {
-          model: Prompt,
-          as: 'prompt',
-          attributes: ['id', 'title']
+    const run = await prisma.promptRun.findUnique({
+      where: { id: runId },
+      include: {
+        prompt: {
+          select: {
+            id: true,
+            title: true
+          }
         },
-        {
-          model: PromptVersion,
-          as: 'version',
-          attributes: ['id', 'version_number']
+        version: {
+          select: {
+            id: true,
+            version_number: true
+          }
         },
-        {
-          model: Account,
-          as: 'user',
-          attributes: ['id', 'username']
+        user: {
+          select: {
+            id: true,
+            username: true
+          }
         }
-      ]
+      }
     });
     
     if (!run) {
@@ -379,7 +412,7 @@ export const getPromptRun = async (req: Request, res: Response): Promise<void> =
     }
     
     res.status(200).json({ run });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching prompt run:', error);
     res.status(500).json({
       message: 'Error fetching prompt run',

@@ -7,6 +7,86 @@ import { authorizeRepository } from '../middleware/authorize';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/repositories/recent:
+ *   get:
+ *     summary: Get recent repositories (includes private repos for authenticated users)
+ *     tags: [Repositories]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of repositories to return
+ *     responses:
+ *       200:
+ *         description: List of recent repositories
+ *       500:
+ *         description: Server error
+ */
+// Get recent repositories
+router.get(
+  '/recent',
+  [
+    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
+    validateRequest,
+  ],
+  repositoryController.getRecentRepositories
+);
+
+/**
+ * @swagger
+ * /api/repositories/trending:
+ *   get:
+ *     summary: Get trending (most recent) public repositories
+ *     tags: [Repositories]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of repositories to return
+ *     responses:
+ *       200:
+ *         description: List of trending repositories
+ *       500:
+ *         description: Server error
+ */
+// Get trending repositories
+router.get(
+  '/trending',
+  [
+    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
+    validateRequest,
+  ],
+  repositoryController.getTrendingRepositories
+);
+
+// List repositories
+router.get(
+  '/',
+  [
+    query('username').optional().isString(),
+    query('orgName').optional().isString(),
+    query('isPublic').optional().isBoolean(),
+    query('sort').optional().isIn(['created_at', 'updated_at', 'name']).withMessage('Invalid sort field'),
+    query('order').optional().isIn(['ASC', 'DESC']).withMessage('Invalid order direction'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+    validateRequest,
+  ],
+  repositoryController.listRepositories
+);
+
 // Create repository
 router.post(
   '/',
@@ -20,6 +100,52 @@ router.post(
     validateRequest,
   ],
   repositoryController.createRepository
+);
+
+/**
+ * @swagger
+ * /api/repositories/user/{username}:
+ *   get:
+ *     summary: Get repositories for a specific user (profile page)
+ *     tags: [Repositories]
+ *     parameters:
+ *       - in: path
+ *         name: username
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of repositories per page
+ *     responses:
+ *       200:
+ *         description: List of user repositories
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/user/:username',
+  [
+    param('username').isString().withMessage('Invalid username'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
+    validateRequest,
+  ],
+  repositoryController.getUserRepositories
 );
 
 // Get repository by ID
@@ -53,59 +179,6 @@ router.delete(
   validateRequest,
   authorizeRepository,
   repositoryController.deleteRepository
-);
-
-// List repositories
-router.get(
-  '/',
-  [
-    query('username').optional().isString(),
-    query('orgName').optional().isString(),
-    query('isPublic').optional().isBoolean(),
-    query('sort').optional().isIn(['created_at', 'updated_at', 'name']).withMessage('Invalid sort field'),
-    query('order').optional().isIn(['ASC', 'DESC']).withMessage('Invalid order direction'),
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-    validateRequest,
-  ],
-  repositoryController.listRepositories
-);
-
-// Add collaborator
-router.post(
-  '/collaborators',
-  authenticate,
-  [
-    body('repoId').isUUID(4).withMessage('Invalid repository ID'),
-    body('userId').isUUID(4).withMessage('Invalid user ID'),
-    body('role').isIn(['editor', 'viewer', 'admin']).withMessage('Invalid role'),
-    validateRequest,
-  ],
-  authorizeRepository,
-  repositoryController.addCollaborator
-);
-
-// Remove collaborator
-router.delete(
-  '/collaborators/:repoId/:userId',
-  authenticate,
-  [
-    param('repoId').isUUID(4).withMessage('Invalid repository ID'),
-    param('userId').isUUID(4).withMessage('Invalid user ID'),
-    validateRequest,
-  ],
-  authorizeRepository,
-  repositoryController.removeCollaborator
-);
-
-// List collaborators
-router.get(
-  '/collaborators/:repoId',
-  authenticate,
-  param('repoId').isUUID(4).withMessage('Invalid repository ID'),
-  validateRequest,
-  authorizeRepository,
-  repositoryController.listCollaborators
 );
 
 export default router; 

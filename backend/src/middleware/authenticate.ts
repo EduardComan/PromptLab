@@ -1,13 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { Account } from '../models';
+import prisma from '../lib/prisma';
 import logger from '../utils/logger';
+
+// Define user interface
+interface JwtPayload {
+  id: string;
+  username: string;
+  iat?: number;
+  exp?: number;
+}
 
 // Extend Express Request interface to include user
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user: JwtPayload;
     }
   }
 }
@@ -26,18 +34,15 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const token = authHeader.split(' ')[1];
 
     // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET as jwt.Secret) as JwtPayload;
 
     // Check if user exists
-    const user = await Account.findByPk(decoded.id);
+    const user = await prisma.account.findUnique({
+      where: { id: decoded.id }
+    });
+    
     if (!user) {
       res.status(401).json({ message: 'User not found or invalid token' });
-      return;
-    }
-
-    // Check if user is active
-    if (!user.is_active) {
-      res.status(403).json({ message: 'Account is deactivated' });
       return;
     }
 
@@ -46,10 +51,10 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     // Continue to next middleware
     next();
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Authentication error:', error);
     
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+    if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
       res.status(401).json({ message: 'Invalid or expired token' });
       return;
     }

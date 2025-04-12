@@ -1,161 +1,102 @@
 # PromptLab
 
-PromptLab is a comprehensive platform for managing AI prompts with version control, collaboration features, and testing capabilities. Think of it as GitHub for prompt engineering.
+A professional platform for managing, testing, and analyzing AI prompts.
 
-## 🌟 Features
+## Project Structure
 
-- **Repository Management**: Organize prompts in repositories with detailed information
-- **Version Control**: Track changes to prompts over time with commit messages
-- **Merge Requests**: Collaborate on prompts with formal review processes
-- **Prompt Playground**: Test prompts with various parameters and models
-- **Execution Logs**: Keep track of prompt executions and performance metrics
-- **Social Layer**: Stars, follows, comments, and notifications
-- **Organizations**: Team-based collaboration and management
-- **Comprehensive Search**: Find prompts, users, and organizations
+The application is divided into two main parts:
 
-## 🚀 Getting Started
+- **Frontend**: React application with TypeScript
+- **Backend**: Node.js Express API with TypeScript and Prisma ORM
+
+## Getting Started
 
 ### Prerequisites
 
-- Docker & Docker Compose (recommended)
-- Node.js (v16+) for local development without Docker
-- PostgreSQL for local development without Docker
-- npm or yarn for local development without Docker
+- Node.js (>= 16.x)
+- npm or yarn
+- PostgreSQL database
 
-### Quick Start with Docker
+### Installation and Setup
 
-The fastest way to get PromptLab running is using Docker:
-
-#### On Windows:
-
-```powershell
-# Clone the repository
-git clone https://github.com/yourusername/promptlab.git
-cd promptlab
-
-# Start the application using the PowerShell script
-.\docker-start.ps1
-```
-
-#### On Linux/macOS:
+#### Backend
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/promptlab.git
-cd promptlab
+# Navigate to backend directory
+cd backend
 
-# Make the startup script executable
-chmod +x docker-start.sh
+# Install dependencies
+npm install
 
-# Start the application
-./docker-start.sh
+# Set up environment variables - copy the example file and modify as needed
+cp .env.example .env
+
+# Run database migrations
+npm run migrate
+
+# Start the development server
+npm run dev
 ```
 
-This will:
-1. Create necessary environment files if they don't exist
-2. Build and start all Docker containers
-3. Run database migrations and seed initial data
-4. Provide URLs for accessing the application
+#### Frontend
 
-After running these commands, access:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001/api
+```bash
+# Navigate to frontend directory
+cd frontend
 
-### Manual Installation (without Docker)
+# Install dependencies
+npm install
 
-For detailed instructions on setting up PromptLab without Docker, see [SETUP.md](SETUP.md).
+# Set up environment variables - copy the example file and modify as needed
+cp .env.example .env
 
-## 📂 Project Structure
-
-```
-promptlab/
-├── backend/              # Backend codebase
-│   ├── controllers/      # API controllers
-│   ├── models/           # Database models
-│   ├── routes/           # API routes
-│   ├── middleware/       # Middleware functions
-│   ├── services/         # Business logic
-│   ├── utils/            # Utility functions
-│   └── index.js          # Entry point
-│
-├── frontend/             # Frontend codebase
-│   ├── src/
-│   │   ├── components/   # Reusable UI components
-│   │   ├── pages/        # Page components
-│   │   ├── contexts/     # React context providers
-│   │   ├── services/     # API client services
-│   │   ├── utils/        # Utility functions
-│   │   └── App.tsx       # Main application component
-│   └── public/           # Static assets
-│
-├── docker/               # Docker-related files
-│   └── prompt-lab-db.sql # Database initialization script
-│
-├── docker-compose.yml    # Docker Compose configuration
-├── docker-start.sh       # Startup script for Linux/macOS
-├── docker-start.ps1      # Startup script for Windows
-└── SETUP.md              # Detailed setup documentation
+# Start the development server
+npm start
 ```
 
-## 🖥️ Tech Stack
+## Docker Setup
 
-### Backend
-- Node.js with Express
-- PostgreSQL database
-- TypeScript
-- JWT authentication
-- Prisma ORM
+The application can also be run using Docker:
 
-### Frontend
-- React with TypeScript
-- Material UI component library
-- React Router for navigation
-- Context API for state management
-- Axios for API requests
+```bash
+# Build and start all services
+docker-compose up -d
 
-## 🌐 API Endpoints
+# To rebuild the services
+docker-compose up -d --build
+```
 
-PromptLab provides a comprehensive RESTful API:
+## Features
 
-- **Authentication**: `/api/auth/*`
-- **Users**: `/api/accounts/*`
-- **Repositories**: `/api/repositories/*`
-- **Prompts**: `/api/prompts/*`
-- **Organizations**: `/api/organizations/*`
-- **Merge Requests**: `/api/merge-requests/*`
-- **Execution**: `/api/execution/*`
-- **Search**: `/api/search/*`
-- **Notifications**: `/api/notifications/*`
+- User authentication and authorization
+- Repository management for AI prompts
+- Prompt testing and execution
+- Analytics and performance tracking
+- Organization-level access control
 
-For detailed API documentation, see the API docs at `/api/docs` when running the application.
+## Development
 
-## 🐞 Troubleshooting
+### Backend Structure
 
-If you encounter issues with Docker startup:
+- `src/controllers/`: Request handlers and business logic
+- `src/routes/`: API route definitions
+- `src/middleware/`: Express middleware
+- `src/services/`: Business logic and services
+- `src/utils/`: Helper functions and utilities
+- `prisma/`: Database schema and migrations
 
-1. Check if Docker and docker-compose are installed and running
-2. Verify that ports 3000, 3001, and 5432 are not in use
-3. Check the container logs:
-   ```bash
-   docker-compose logs
-   ```
+### Frontend Structure
 
-For more detailed troubleshooting, see [SETUP.md](SETUP.md).
+- `src/components/`: Reusable UI components
+- `src/pages/`: Page-level components
+- `src/features/`: Feature-specific components and logic
+- `src/contexts/`: React context providers
+- `src/services/`: API service functions
 
-## 🤝 Contributing
+## API Documentation
 
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add some amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+The API documentation is available at `/api-docs` when the backend server is running.
 
-## 📝 License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📞 Contact
-
-- Email: your.email@example.com
-- Twitter: [@yourusername](https://twitter.com/yourusername)
-- Project Link: [https://github.com/yourusername/promptlab](https://github.com/yourusername/promptlab)
+[MIT](LICENSE)

@@ -1,16 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { sequelize } from './config/database';
+import swaggerUi from 'swagger-ui-express';
 import logger from './utils/logger';
+import prisma from './lib/prisma';
 import accountRoutes from './routes/account.routes';
-import organizationRoutes from './routes/organization.routes';
 import repositoryRoutes from './routes/repository.routes';
 import promptRoutes from './routes/prompt.routes';
-import promptVersionRoutes from './routes/promptVersion.routes';
-import mergeRequestRoutes from './routes/mergeRequest.routes';
-import promptRunRoutes from './routes/promptRun.routes';
-import socialRoutes from './routes/social.routes';
+import promptExecutionRoutes from './routes/prompt-execution.routes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import organizationRoutes from './routes/organization.routes';
+import { swaggerSpec } from './config/swagger';
 
 dotenv.config();
 
@@ -21,44 +21,41 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Routes
 app.use('/api/accounts', accountRoutes);
-app.use('/api/organizations', organizationRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/prompts', promptRoutes);
-app.use('/api/versions', promptVersionRoutes);
-app.use('/api/merge-requests', mergeRequestRoutes);
-app.use('/api/runs', promptRunRoutes);
-app.use('/api/social', socialRoutes);
+app.use('/api/prompt-execution', promptExecutionRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/organizations', organizationRoutes);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error(err.stack);
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error('Error:', err);
   res.status(500).json({
     message: 'An unexpected error occurred',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    error: process.env.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined,
   });
 });
 
 // Start the server
 const startServer = async () => {
   try {
-    await sequelize.authenticate();
+    // Verify Prisma connection
+    await prisma.$connect();
     logger.info('Database connection has been established successfully.');
-    
-    // Sync database models (in development)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      logger.info('Database synced');
-    }
     
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
+      logger.info(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
     });
   } catch (error) {
     logger.error('Unable to start the server:', error);

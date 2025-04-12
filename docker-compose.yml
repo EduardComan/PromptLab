@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: promptlab
       POSTGRES_PASSWORD: promptlab_password
-      POSTGRES_DB: promptlab
+      POSTGRES_DB: prompt_management_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/prompt-lab-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -30,10 +30,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://promptlab:promptlab_password@postgres:5432/promptlab
-    env_file:
-      - ./backend/.env
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@localhost:5432/prompt_management_db
     ports:
       - "3001:3001"
     volumes:
@@ -50,8 +48,6 @@ services:
     container_name: promptlab-frontend
     depends_on:
       - backend
-    env_file:
-      - ./frontend/.env
     ports:
       - "3000:3000"
     volumes:

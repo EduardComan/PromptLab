@@ -1,52 +1,38 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { CssBaseline, Box } from '@mui/material';
+import { Route, Navigate, Routes } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-
-// Pages
-import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import PromptAnalytics from './pages/PromptAnalytics';
-import Repository from './pages/Repository';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Organizations from './pages/Organizations';
-import OrganizationDetail from './pages/OrganizationDetail';
-import Search from './pages/Search';
-import MergeRequest from './pages/MergeRequest';
-import NotificationList from './pages/NotificationList';
-import Terms from './pages/Terms';
 import ForgotPassword from './pages/ForgotPassword';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
+import OrganizationDetail from './pages/OrganizationDetail';
+import Repository from './pages/Repository';
+import Terms from './pages/Terms';
+import AppLayout from './components/Layout/AppLayout';
+import './App.css';
 
-// Layouts
-import MainLayout from './components/Layout/MainLayout';
-
-// Protected route component
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+// Protected route component that checks for authentication
+const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { user, isLoading } = useAuth();
   
   if (isLoading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</Box>;
+    // You can add a loading spinner here
+    return <div>Loading...</div>;
   }
   
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
   
-  return <>{children}</>;
+  return children;
 };
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <CssBaseline />
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -54,18 +40,18 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/terms" element={<Terms />} />
           
-          {/* Main layout routes */}
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Home />} />
-            <Route path="search" element={<Search />} />
-            <Route path="analytics/:promptId" element={<PromptAnalytics />} />
-            <Route path="repositories/:repoId" element={<Repository />} />
-            <Route path="users/:username" element={<Profile />} />
-            <Route path="merge-requests/:requestId" element={<MergeRequest />} />
-            
-            {/* Protected routes */}
+          {/* Main layout with protected routes */}
+          <Route path="/" element={<AppLayout />}>
             <Route 
-              path="settings/*" 
+              index
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/settings/*" 
               element={
                 <ProtectedRoute>
                   <Settings />
@@ -73,15 +59,7 @@ function App() {
               } 
             />
             <Route 
-              path="organizations" 
-              element={
-                <ProtectedRoute>
-                  <Organizations />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="organizations/:orgId" 
+              path="/organizations/:orgId" 
               element={
                 <ProtectedRoute>
                   <OrganizationDetail />
@@ -89,17 +67,24 @@ function App() {
               } 
             />
             <Route 
-              path="notifications" 
+              path="/repositories/:repoId" 
               element={
                 <ProtectedRoute>
-                  <NotificationList />
+                  <Repository />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Redirect any unknown paths to dashboard if logged in, or login if not */}
+            <Route 
+              path="*" 
+              element={
+                <ProtectedRoute>
+                  <Navigate to="/" replace />
                 </ProtectedRoute>
               } 
             />
           </Route>
-          
-          {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </ThemeProvider>
