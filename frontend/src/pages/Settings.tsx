@@ -34,7 +34,7 @@ import {
   AddAPhoto as AddAPhotoIcon,
   Save as SaveIcon
 } from '@mui/icons-material';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import UserService from '../services/UserService';
@@ -62,7 +62,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const Settings: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, updateUser, logout } = useAuth();
+  const { user } = useAuth();
   
   const [tabValue, setTabValue] = useState(0);
   
@@ -135,12 +135,18 @@ const Settings: React.FC = () => {
           </Tabs>
         </Box>
         
-        <Routes>
-          <Route path="profile" element={<ProfileSettings />} />
-          <Route path="notifications" element={<NotificationSettings />} />
-          <Route path="security" element={<SecuritySettings />} />
-          <Route path="account" element={<AccountSettings />} />
-        </Routes>
+        <TabPanel value={tabValue} index={0}>
+          <ProfileSettings />
+        </TabPanel>
+        <TabPanel value={tabValue} index={1}>
+          <NotificationSettings />
+        </TabPanel>
+        <TabPanel value={tabValue} index={2}>
+          <SecuritySettings />
+        </TabPanel>
+        <TabPanel value={tabValue} index={3}>
+          <AccountSettings />
+        </TabPanel>
       </Paper>
     </Container>
   );
@@ -197,17 +203,17 @@ const ProfileSettings: React.FC = () => {
         bio: formData.bio
       });
       
-      // Upload profile image if changed
-      if (profileImage) {
-        const imageResult = await UserService.uploadProfileImage(profileImage);
+      // // Upload profile image if changed
+      // if (profileImage) {
+      //   const imageResult = await UserService.uploadProfileImage(profileImage);
         
-        // Update user context with new image
-        if (imageResult.profile_image_id) {
-          updateUser({
-            profile_image_id: imageResult.profile_image_id
-          });
-        }
-      }
+      //   // Update user context with new image
+      //   if (imageResult.profile_image_id) {
+      //     updateUser({
+      //       profile_image_id: imageResult.profile_image_id
+      //     });
+      //   }
+      // }
       
       // Update user context with new profile info
       updateUser({

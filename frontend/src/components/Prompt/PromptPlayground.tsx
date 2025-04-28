@@ -4,8 +4,6 @@ import {
   Typography,
   TextField,
   Button,
-  Card,
-  CardContent,
   Divider,
   CircularProgress,
   Grid,
@@ -19,28 +17,18 @@ import {
   SelectChangeEvent,
   Tabs,
   Tab,
-  IconButton,
-  Badge,
   Tooltip,
   Alert,
   styled
 } from '@mui/material';
 import {
-  ExpandMore as ExpandMoreIcon,
-  Send as SendIcon,
-  Settings as SettingsIcon,
   PlayArrow as RunIcon,
   History as HistoryIcon,
   Info as InfoIcon,
   Code as CodeIcon,
   Description as DescriptionIcon,
-  DataObject as DataObjectIcon,
-  MoreVert as MoreVertIcon,
-  Download as DownloadIcon
 } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { PromptVersion } from '../../interfaces';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { vs2015 } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { useAuth } from '../../contexts/AuthContext';

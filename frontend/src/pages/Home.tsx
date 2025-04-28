@@ -1,393 +1,330 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Typography, 
-  Box, 
-  Grid, 
-  Card, 
-  CardContent, 
-  CardActions,
-  Button, 
-  Avatar, 
-  TextField, 
-  InputAdornment, 
-  Chip,
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box,
+  Typography,
+  Container,
   Paper,
-  Divider,
-  IconButton,
-  Tabs,
   Tab,
-  CircularProgress
+  Tabs,
+  CircularProgress,
+  Button,
+  Grid,
+  TextField,
+  InputAdornment
 } from '@mui/material';
-import { 
-  Search as SearchIcon, 
-  Star as StarIcon, 
-  Visibility as VisibilityIcon,
+import {
+  TrendingUp as TrendingIcon,
+  Sync as RecentIcon,
   Person as PersonIcon,
-  Code as CodeIcon,
-  LocalFireDepartment as TrendingIcon,
-  Bookmark as BookmarkIcon
+  Search as SearchIcon
 } from '@mui/icons-material';
+import RepositoryGrid from '../components/Repository/RepositoryGrid';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-
-interface Repository {
-  id: string;
-  name: string;
-  description: string;
-  is_public: boolean;
-  owner_user?: {
-    id: string;
-    username: string;
-    profile_image?: {
-      id: string;
-    };
-  };
-  owner_org?: {
-    id: string;
-    name: string;
-    logo_image?: {
-      id: string;
-    };
-  };
-  prompt: {
-    id: string;
-    title: string;
-    description: string;
-  };
-  created_at: string;
-  star_count: number;
-  tags: Array<{ id: string; name: string }>;
-}
+import api from '../services/api';
 
 const Home: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [trendingRepos, setTrendingRepos] = useState<Repository[]>([]);
-  const [recentRepos, setRecentRepos] = useState<Repository[]>([]);
-  const [followingRepos, setFollowingRepos] = useState<Repository[]>([]);
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
+  const [trendingRepos, setTrendingRepos] = useState<any[]>([]);
+  const [recentRepos, setRecentRepos] = useState<any[]>([]);
+  const [userRepos, setUserRepos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch trending repositories
-        const trendingResponse = await api.get('/repositories/trending');
-        setTrendingRepos(trendingResponse.data.repositories);
-        
-        // Fetch recent repositories
-        const recentResponse = await api.get('/repositories/recent');
-        setRecentRepos(recentResponse.data.repositories);
-        
-        // Fetch repositories from followed users if logged in
-        if (user) {
-          const followingResponse = await api.get('/repositories/following');
-          setFollowingRepos(followingResponse.data.repositories);
-        }
-      } catch (error) {
-        console.error('Error fetching repositories:', error);
-      } finally {
-        setLoading(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchRepos = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fetch trending repositories by star count
+      const trendingResponse = await api.get('/repositories', {
+        params: { limit: 8, sort: 'stars', order: 'desc' }
+      });
+
+      // Fetch recent repositories
+      const recentResponse = await api.get('/repositories', {
+        params: { limit: 8, sort: 'created_at', order: 'desc' }
+      });
+      
+      setTrendingRepos(trendingResponse.data.repositories || []);
+      setRecentRepos(recentResponse.data.repositories || []);
+
+      // If user is logged in, fetch their repositories
+      if (user) {
+        const userReposResponse = await api.get(`/repositories/user/${user.username}`, {
+          params: { limit: 4 }
+        });
+        setUserRepos(userReposResponse.data.repositories || []);
       }
-    };
-    
-    fetchData();
+    } catch (error) {
+      console.error('Error fetching repositories:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
-  
+
+  useEffect(() => {
+    fetchRepos();
+  }, [fetchRepos]);
+
+  const handleStarRepo = async (repoId: string, isStarred: boolean) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      if (isStarred) {
+        await api.delete(`/repositories/${repoId}/star`);
+      } else {
+        await api.post(`/repositories/${repoId}/star`);
+      }
+      
+      // Refresh the repository data
+      fetchRepos();
+    } catch (error) {
+      console.error('Error starring repository:', error);
+    }
+  };
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
-  
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      {/* Hero section with search */}
-      <Paper 
-        sx={{ 
-          p: 4, 
-          mb: 5, 
-          textAlign: 'center',
-          backgroundImage: 'linear-gradient(135deg, #1976d2 0%, #512da8 100%)',
-          color: 'white'
+    <Container maxWidth="lg">
+      {/* Hero Section */}
+      <Box
+        sx={{
+          pt: 4,
+          pb: 6,
+          mb: 6,
+          position: 'relative',
+          backgroundImage: 'linear-gradient(120deg, #f6d365 0%, #fda085 100%)',
+          backgroundSize: 'cover',
+          borderRadius: 4,
+          overflow: 'hidden',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
         }}
       >
-        <Typography variant="h3" component="h1" gutterBottom>
-          PromptLab
-        </Typography>
-        <Typography variant="h5" component="h2" gutterBottom>
-          Discover, share, and collaborate on AI prompts
-        </Typography>
-        
-        <Box 
-          component="form" 
-          onSubmit={handleSearch}
-          sx={{ 
-            mt: 3, 
-            width: '100%', 
-            maxWidth: 600, 
-            mx: 'auto',
-            display: 'flex'
-          }}
-        >
-          <TextField
-            fullWidth
-            placeholder="Search for prompts, tags, or users..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            variant="outlined"
-            sx={{ 
-              bgcolor: 'white', 
-              borderRadius: 1,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '4px 0 0 4px',
-              }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button 
-            type="submit" 
-            variant="contained" 
-            sx={{ 
-              bgcolor: '#f5f5f5', 
-              color: '#333',
-              '&:hover': {
-                bgcolor: '#e0e0e0',
-              },
-              borderRadius: '0 4px 4px 0',
-            }}
+        <Container maxWidth="md">
+          <Grid container spacing={4} alignItems="center">
+            <Grid item xs={12} md={7}>
+              <Typography
+                variant="h3"
+                component="h1"
+                sx={{
+                  fontWeight: 700,
+                  color: 'white',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  mb: 2
+                }}
+              >
+                PromptLab
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 400,
+                  color: 'white',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                  mb: 3
+                }}
+              >
+                Discover, share, and collaborate on AI prompts
+              </Typography>
+              <Box component="form" onSubmit={handleSearch} sx={{ mb: 4 }}>
+                <TextField
+                  fullWidth
+                  placeholder="Search for prompts, tags, or users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        sx={{
+                          background: 'rgba(0,0,0,0.25)',
+                          '&:hover': {
+                            background: 'rgba(0,0,0,0.35)'
+                          }
+                        }}
+                      >
+                        Search
+                      </Button>
+                    ),
+                    sx: {
+                      bgcolor: 'white',
+                      borderRadius: 2,
+                      pr: 0.5
+                    }
+                  }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={5} sx={{ display: { xs: 'none', md: 'block' } }}>
+              <img
+                src="/hero-image.png"
+                alt="AI Prompts"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.2))'
+                }}
+              />
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* Repository Section */}
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 4,
+          p: 3,
+          borderRadius: 2,
+          backgroundImage: 'linear-gradient(to right, #f5f7fa, #c3cfe2)',
+        }}
+      >
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            aria-label="repository tabs"
+            centered
           >
-            Search
-          </Button>
+            <Tab 
+              icon={<TrendingIcon />} 
+              iconPosition="start" 
+              label="Trending" 
+              id="tab-0" 
+              aria-controls="tabpanel-0" 
+            />
+            <Tab 
+              icon={<RecentIcon />} 
+              iconPosition="start" 
+              label="Recent" 
+              id="tab-1" 
+              aria-controls="tabpanel-1" 
+            />
+            {user && (
+              <Tab 
+                icon={<PersonIcon />} 
+                iconPosition="start" 
+                label="Your Repositories" 
+                id="tab-2" 
+                aria-controls="tabpanel-2" 
+              />
+            )}
+          </Tabs>
         </Box>
-      </Paper>
-      
-      {/* Repository browser */}
-      <Box sx={{ mb: 4 }}>
-        <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange} 
-          aria-label="repository tabs"
-          sx={{ mb: 2 }}
-        >
-          <Tab icon={<TrendingIcon />} iconPosition="start" label="Trending" />
-          <Tab icon={<CodeIcon />} iconPosition="start" label="Recent" />
-          {user && <Tab icon={<PersonIcon />} iconPosition="start" label="Following" />}
-        </Tabs>
-        
+
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <Box>
-            <TabPanel value={tabValue} index={0}>
-              <RepositoryGrid repositories={trendingRepos} />
-            </TabPanel>
-            <TabPanel value={tabValue} index={1}>
-              <RepositoryGrid repositories={recentRepos} />
-            </TabPanel>
+          <>
+            <Box
+              role="tabpanel"
+              hidden={tabValue !== 0}
+              id="tabpanel-0"
+              aria-labelledby="tab-0"
+            >
+              {tabValue === 0 && (
+                <RepositoryGrid 
+                  repositories={trendingRepos} 
+                  title="Trending Repositories"
+                  emptyMessage="No trending repositories found. Be the first to create one!" 
+                  onStar={handleStarRepo}
+                />
+              )}
+            </Box>
+            <Box
+              role="tabpanel"
+              hidden={tabValue !== 1}
+              id="tabpanel-1"
+              aria-labelledby="tab-1"
+            >
+              {tabValue === 1 && (
+                <RepositoryGrid 
+                  repositories={recentRepos} 
+                  title="Recently Created"
+                  emptyMessage="No recent repositories found. Be the first to create one!"
+                  onStar={handleStarRepo}
+                />
+              )}
+            </Box>
             {user && (
-              <TabPanel value={tabValue} index={2}>
-                {followingRepos.length > 0 ? (
-                  <RepositoryGrid repositories={followingRepos} />
-                ) : (
-                  <Paper sx={{ p: 4, textAlign: 'center' }}>
-                    <Typography variant="body1" color="text.secondary">
-                      Repositories from users you follow will appear here.
-                    </Typography>
-                    <Button 
-                      variant="contained" 
-                      sx={{ mt: 2 }}
-                      onClick={() => navigate('/discover/users')}
-                    >
-                      Discover Users to Follow
-                    </Button>
-                  </Paper>
+              <Box
+                role="tabpanel"
+                hidden={tabValue !== 2}
+                id="tabpanel-2"
+                aria-labelledby="tab-2"
+              >
+                {tabValue === 2 && (
+                  <RepositoryGrid 
+                    repositories={userRepos} 
+                    title="Your Repositories"
+                    emptyMessage="You don't have any repositories yet. Create one to get started!"
+                    onStar={handleStarRepo}
+                  />
                 )}
-              </TabPanel>
+              </Box>
             )}
-          </Box>
+          </>
         )}
-      </Box>
-      
-      {/* Call to action */}
-      <Paper sx={{ p: 4, mb: 5, textAlign: 'center' }}>
-        <Typography variant="h5" gutterBottom>
+      </Paper>
+
+      {/* Call to Action Section */}
+      <Paper 
+        elevation={0}
+        sx={{ 
+          p: 4, 
+          borderRadius: 2, 
+          textAlign: 'center',
+          backgroundImage: 'linear-gradient(to top, #a8edea 0%, #fed6e3 100%)',
+          mb: 6
+        }}
+      >
+        <Typography variant="h5" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           Ready to create your own prompts?
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography variant="body1" paragraph>
           Create a repository and start crafting powerful AI prompts with version control, collaboration, and testing features.
         </Typography>
         <Button 
           variant="contained" 
           size="large"
-          onClick={() => navigate(user ? '/repositories/new' : '/login')}
+          onClick={() => navigate('/repositories/new')}
+          sx={{
+            mt: 2,
+            background: 'linear-gradient(45deg, #4568dc, #b06ab3)',
+            boxShadow: '0 4px 12px rgba(176, 106, 179, 0.2)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #3457cb, #9f59a2)',
+              boxShadow: '0 6px 16px rgba(176, 106, 179, 0.3)',
+            }
+          }}
         >
-          {user ? 'Create Repository' : 'Sign In to Get Started'}
+          Create Repository
         </Button>
       </Paper>
     </Container>
-  );
-};
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`repository-tabpanel-${index}`}
-      aria-labelledby={`repository-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box>{children}</Box>}
-    </div>
-  );
-}
-
-interface RepositoryGridProps {
-  repositories: Repository[];
-}
-
-const RepositoryGrid: React.FC<RepositoryGridProps> = ({ repositories }) => {
-  const navigate = useNavigate();
-  
-  if (repositories.length === 0) {
-    return (
-      <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1" color="text.secondary">
-          No repositories found.
-        </Typography>
-      </Paper>
-    );
-  }
-  
-  return (
-    <Grid container spacing={3}>
-      {repositories.map((repo) => (
-        <Grid item xs={12} sm={6} md={4} key={repo.id}>
-          <Card 
-            sx={{ 
-              height: '100%', 
-              display: 'flex', 
-              flexDirection: 'column',
-              transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: 4,
-              },
-            }}
-          >
-            <CardContent sx={{ flexGrow: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Avatar 
-                  src={
-                    repo.owner_user?.profile_image 
-                      ? `/api/images/${repo.owner_user.profile_image.id}` 
-                      : repo.owner_org?.logo_image 
-                      ? `/api/images/${repo.owner_org.logo_image.id}`
-                      : undefined
-                  }
-                  sx={{ width: 24, height: 24, mr: 1 }}
-                >
-                  {repo.owner_user 
-                    ? repo.owner_user.username.charAt(0).toUpperCase() 
-                    : repo.owner_org?.name.charAt(0).toUpperCase()}
-                </Avatar>
-                <Typography variant="body2" color="text.secondary">
-                  {repo.owner_user?.username || repo.owner_org?.name}
-                </Typography>
-              </Box>
-              
-              <Typography variant="h6" component="h2" gutterBottom noWrap>
-                {repo.name}
-              </Typography>
-              
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, height: 40, overflow: 'hidden' }}>
-                {repo.description || repo.prompt.description || 'No description available'}
-              </Typography>
-              
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                {repo.tags && repo.tags.slice(0, 3).map((tag) => (
-                  <Chip
-                    key={tag.id}
-                    label={tag.name}
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/tags/${tag.name}`);
-                    }}
-                  />
-                ))}
-                {repo.tags && repo.tags.length > 3 && (
-                  <Chip
-                    label={`+${repo.tags.length - 3}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                )}
-              </Box>
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <StarIcon fontSize="small" color="action" />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5, mr: 2 }}>
-                  {repo.star_count}
-                </Typography>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {repo.is_public ? (
-                    <VisibilityIcon fontSize="small" color="action" />
-                  ) : (
-                    <BookmarkIcon fontSize="small" color="action" />
-                  )}
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
-                    {repo.is_public ? 'Public' : 'Private'}
-                  </Typography>
-                </Box>
-                
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                  {formatDistanceToNow(new Date(repo.created_at), { addSuffix: true })}
-                </Typography>
-              </Box>
-            </CardContent>
-            
-            <Divider />
-            
-            <CardActions>
-              <Button 
-                size="small" 
-                onClick={() => navigate(`/repositories/${repo.id}`)}
-                sx={{ width: '100%' }}
-              >
-                View Prompt
-              </Button>
-            </CardActions>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
   );
 };
 

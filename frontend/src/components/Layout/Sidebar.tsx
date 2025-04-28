@@ -1,185 +1,244 @@
 import React from 'react';
-import { 
-  Drawer, 
-  List, 
-  Divider, 
-  ListItem, 
-  ListItemButton, 
-  ListItemIcon, 
-  ListItemText, 
-  Toolbar, 
-  IconButton, 
-  Box, 
+import {
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+  Divider,
+  IconButton,
   useTheme,
   useMediaQuery,
-  Button
+  Tooltip
 } from '@mui/material';
-import { 
-  ChevronLeft as ChevronLeftIcon,
+import {
   Home as HomeIcon,
-  Bookmarks as BookmarksIcon,
-  Groups as GroupsIcon,
+  Explore as ExploreIcon,
+  Add as CreateIcon,
   Star as StarIcon,
   Settings as SettingsIcon,
-  Add as AddIcon,
-  Search as SearchIcon
+  BusinessOutlined as BusinessIcon,
+  ChevronLeft as ChevronLeftIcon,
+  Menu as MenuIcon
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { styled } from '@mui/material/styles';
 
-interface SidebarProps {
-  drawerWidth: number;
-  open: boolean;
-  handleDrawerClose: () => void;
+// Styled components
+const DrawerHeader = styled('div')(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: theme.spacing(0, 1),
+  minHeight: 64, // Same height as app bar
+  backgroundColor: theme.palette.background.default,
+  borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+}));
+
+const Logo = styled('div')(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(0, 1),
+  fontWeight: 700,
+  fontSize: '1.25rem',
+  letterSpacing: '.1rem',
+}));
+
+interface MenuItem {
+  title: string;
+  path: string;
+  icon: React.ReactNode;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, open, handleDrawerClose }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+interface SidebarProps {
+  open?: boolean;
+  onToggle?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
+  const { user } = useAuth();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [localOpen, setLocalOpen] = React.useState(!isMobile);
   
-  const menuItems = [
-    { text: 'Home', icon: <HomeIcon />, path: '/' },
-    { text: 'Search', icon: <SearchIcon />, path: '/search' }
-  ];
+  // Use either prop-controlled or local state
+  const open = propOpen !== undefined ? propOpen : localOpen;
   
-  const authenticatedMenuItems = [
-    { text: 'My Repositories', icon: <BookmarksIcon />, path: `/users/${user?.username}` },
-    { text: 'Organizations', icon: <GroupsIcon />, path: '/organizations' },
-    { text: 'Starred', icon: <StarIcon />, path: '/starred' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings/profile' }
-  ];
-  
-  const handleNavigate = (path: string) => {
-    navigate(path);
-    if (isMobile) {
-      handleDrawerClose();
+  // Toggle drawer
+  const toggleDrawer = () => {
+    if (onToggle) {
+      onToggle();
+    } else {
+      setLocalOpen(!localOpen);
     }
   };
   
-  const isCurrentPath = (path: string) => {
-    return location.pathname === path || 
-           (path !== '/' && location.pathname.startsWith(path));
-  };
+  const drawerWidth = open ? 240 : 64;
   
-  const drawer = (
-    <>
-      <Toolbar sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'flex-end', 
-        px: [1] 
-      }}>
-        <IconButton onClick={handleDrawerClose}>
-          <ChevronLeftIcon />
-        </IconButton>
-      </Toolbar>
-      
-      <Divider />
-      
-      <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton 
-              onClick={() => handleNavigate(item.path)}
-              selected={isCurrentPath(item.path)}
-              sx={{
-                borderRadius: 1,
-                mx: 1,
-                mb: 0.5,
-                '&.Mui-selected': {
-                  backgroundColor: theme.palette.mode === 'dark' 
-                    ? 'rgba(144, 202, 249, 0.16)' 
-                    : 'rgba(33, 150, 243, 0.08)',
-                  '&:hover': {
-                    backgroundColor: theme.palette.mode === 'dark' 
-                      ? 'rgba(144, 202, 249, 0.24)' 
-                      : 'rgba(33, 150, 243, 0.12)',
-                  }
-                }
-              }}
-            >
-              <ListItemIcon>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      
-      {isAuthenticated && (
-        <>
-          <Divider sx={{ my: 1 }} />
-          
-          <Box sx={{ px: 2, pb: 2 }}>
-            <Button
-              variant="contained"
-              fullWidth
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/repositories/new')}
-              sx={{ 
-                textTransform: 'none',
-                fontWeight: 600,
-                borderRadius: 2,
-              }}
-            >
-              Create Repository
-            </Button>
-          </Box>
-          
-          <List>
-            {authenticatedMenuItems.map((item) => (
-              <ListItem key={item.text} disablePadding>
-                <ListItemButton 
-                  onClick={() => handleNavigate(item.path)}
-                  selected={isCurrentPath(item.path)}
-                  sx={{
-                    borderRadius: 1,
-                    mx: 1,
-                    mb: 0.5,
-                    '&.Mui-selected': {
-                      backgroundColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(144, 202, 249, 0.16)' 
-                        : 'rgba(33, 150, 243, 0.08)',
-                      '&:hover': {
-                        backgroundColor: theme.palette.mode === 'dark' 
-                          ? 'rgba(144, 202, 249, 0.24)' 
-                          : 'rgba(33, 150, 243, 0.12)',
-                      }
-                    }
-                  }}
-                >
-                  <ListItemIcon>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText primary={item.text} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </>
-      )}
-    </>
-  );
+  // Menu items for the sidebar
+  const menuItems: MenuItem[] = [
+    { 
+      title: 'Home', 
+      path: '/', 
+      icon: <HomeIcon /> 
+    },
+    { 
+      title: 'Discover', 
+      path: '/discover', 
+      icon: <ExploreIcon /> 
+    },
+    { 
+      title: 'Organizations', 
+      path: '/organizations', 
+      icon: <BusinessIcon /> 
+    }
+  ];
+  
+  // Menu items that only appear when user is logged in
+  const authenticatedMenuItems: MenuItem[] = [
+    { 
+      title: 'My Repositories', 
+      path: '/my-repositories', 
+      icon: <StarIcon /> 
+    },
+    { 
+      title: 'Create Repository', 
+      path: '/repositories/new', 
+      icon: <CreateIcon /> 
+    },
+    { 
+      title: 'Settings', 
+      path: '/settings', 
+      icon: <SettingsIcon /> 
+    }
+  ];
 
   return (
     <Drawer
-      variant={isMobile ? 'temporary' : 'permanent'}
-      open={isMobile ? open : true}
-      onClose={handleDrawerClose}
+      variant={isMobile ? "temporary" : "permanent"}
+      open={open}
+      onClose={isMobile ? toggleDrawer : undefined}
       sx={{
         width: drawerWidth,
         flexShrink: 0,
-        '& .MuiDrawer-paper': {
+        position: 'absolute',
+        height: '100%',
+        '& .MuiBackdrop-root': {
+          display: 'none',
+        },
+        '& .MuiDrawer-paper': { 
+          position: 'absolute',
           width: drawerWidth,
           boxSizing: 'border-box',
+          borderRight: '1px solid rgba(0, 0, 0, 0.08)',
+          overflowX: 'hidden',
+          transition: theme.transitions.create('width', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         },
       }}
     >
-      {drawer}
+      <DrawerHeader>
+        {open && (
+          <Logo>
+            PromptLab
+          </Logo>
+        )}
+        <IconButton onClick={toggleDrawer}>
+          {open ? <ChevronLeftIcon /> : <MenuIcon />}
+        </IconButton>
+      </DrawerHeader>
+      <Divider />
+      <Box sx={{ overflow: 'auto', mt: 2 }}>
+        <List>
+          {menuItems.map((item) => (
+            <ListItem 
+              button 
+              key={item.title} 
+              component={NavLink} 
+              to={item.path}
+              sx={{
+                mb: 0.5,
+                px: 2,
+                py: 1,
+                justifyContent: open ? 'initial' : 'center',
+                color: 'text.primary',
+                borderRadius: '0 20px 20px 0',
+                '&.active': {
+                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                  color: 'primary.main',
+                  fontWeight: 'bold',
+                  '& .MuiListItemIcon-root': {
+                    color: 'primary.main',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                }
+              }}
+            >
+              <Tooltip title={open ? "" : item.title} placement="right">
+                <ListItemIcon sx={{ minWidth: open ? 40 : 0, mr: open ? 3 : 'auto', justifyContent: 'center' }}>
+                  {item.icon}
+                </ListItemIcon>
+              </Tooltip>
+              {open && <ListItemText primary={item.title} />}
+            </ListItem>
+          ))}
+        </List>
+        
+        {user && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            {open && (
+              <Typography variant="subtitle2" color="text.secondary" sx={{ px: 3, mb: 1 }}>
+                Personal
+              </Typography>
+            )}
+            <List>
+              {authenticatedMenuItems.map((item) => (
+                <ListItem 
+                  button 
+                  key={item.title} 
+                  component={NavLink} 
+                  to={item.path}
+                  sx={{
+                    mb: 0.5,
+                    px: 2,
+                    py: 1,
+                    justifyContent: open ? 'initial' : 'center',
+                    color: 'text.primary',
+                    borderRadius: '0 20px 20px 0',
+                    '&.active': {
+                      backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                      color: 'primary.main',
+                      fontWeight: 'bold',
+                      '& .MuiListItemIcon-root': {
+                        color: 'primary.main',
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    }
+                  }}
+                >
+                  <Tooltip title={open ? "" : item.title} placement="right">
+                    <ListItemIcon sx={{ minWidth: open ? 40 : 0, mr: open ? 3 : 'auto', justifyContent: 'center' }}>
+                      {item.icon}
+                    </ListItemIcon>
+                  </Tooltip>
+                  {open && <ListItemText primary={item.title} />}
+                </ListItem>
+              ))}
+            </List>
+          </>
+        )}
+      </Box>
     </Drawer>
   );
 };

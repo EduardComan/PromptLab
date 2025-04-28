@@ -9,6 +9,70 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/prompts:
+ *   post:
+ *     summary: Create a new prompt
+ *     tags: [Prompts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - repository_id
+ *               - title
+ *               - content
+ *             properties:
+ *               repository_id:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID of the repository to add the prompt to
+ *               title:
+ *                 type: string
+ *                 description: Title of the prompt
+ *               description:
+ *                 type: string
+ *                 description: Description of the prompt
+ *               content:
+ *                 type: string
+ *                 description: Content of the prompt
+ *               metadata_json:
+ *                 type: object
+ *                 description: Additional metadata for the prompt
+ *     responses:
+ *       201:
+ *         description: Prompt created successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - no permission to access repository
+ *       404:
+ *         description: Repository not found
+ *       500:
+ *         description: Server error
+ */
+router.post(
+  '/',
+  authenticate,
+  [
+    body('repository_id').isUUID(4).withMessage('Invalid repository ID'),
+    body('title').notEmpty().isString().withMessage('Title is required'),
+    body('description').optional().isString(),
+    body('content').notEmpty().isString().withMessage('Content is required'),
+    body('metadata_json').optional().isObject().withMessage('Metadata must be an object'),
+    validateRequest,
+  ],
+  authorizeRepository,
+  promptController.createPrompt
+);
+
+/**
+ * @swagger
  * /api/prompts/versions/{versionId}:
  *   get:
  *     summary: Get a specific version of a prompt

@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import logger from '../utils/logger';
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 

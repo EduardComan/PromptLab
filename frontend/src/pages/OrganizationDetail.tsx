@@ -1,761 +1,631 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Typography, 
-  Box, 
-  Paper, 
-  Button, 
-  Avatar, 
-  Tabs, 
-  Tab, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  ListItemAvatar, 
-  ListItemSecondaryAction,
-  Divider,
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Avatar,
+  Button,
+  Tabs,
+  Tab,
   CircularProgress,
   Chip,
+  Divider,
+  Grid,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  IconButton,
   Alert,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent,
-  FormControlLabel,
-  Switch
+  ListItemSecondaryAction
 } from '@mui/material';
-import { 
-  Edit as EditIcon, 
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
   Add as AddIcon,
-  Code as CodeIcon,
-  People as PeopleIcon,
+  Person as PersonIcon,
   Settings as SettingsIcon,
-  Email as EmailIcon
+  Code as CodeIcon,
+  Star as StarIcon,
+  AdminPanelSettings as AdminIcon,
+  MoreVert as MoreIcon,
+  ExitToApp as LeaveIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import RepositoryGrid from '../components/Repository/RepositoryGrid';
-
-interface Organization {
-  id: string;
-  name: string;
-  description: string;
-  is_public: boolean;
-  logo_image?: {
-    id: string;
-  };
-  created_at: string;
-  updated_at: string;
-  repositories_count: number;
-  members_count: number;
-  is_member: boolean;
-  is_admin: boolean;
-}
-
-interface Member {
-  id: string;
-  user_id: string;
-  org_id: string;
-  role: string;
-  joined_at: string;
-  user: {
-    id: string;
-    username: string;
-    profile_image?: {
-      id: string;
-    };
-  };
-}
+import { formatDistanceToNow } from 'date-fns';
+import { organizationService } from '../services/OrganizationService';
+import { Organization, OrganizationMember, User } from '../interfaces';
+import api from '../services/api';
 
 const OrganizationDetail: React.FC = () => {
-  const { orgName } = useParams<{ orgName: string }>();
-  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  
+  const navigate = useNavigate();
+  const [tabValue, setTabValue] = useState(0);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [repositories, setRepositories] = useState<any[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [openEditDialog, setOpenEditDialog] = useState(false);
-  
-  useEffect(() => {
-    if (orgName) {
-      fetchOrganizationData();
-    }
-  }, [orgName]);
-  
-  const fetchOrganizationData = async () => {
+  const [editData, setEditData] = useState<{ name: string; description: string }>({
+    name: '',
+    description: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchOrganizationDetails = useCallback(async () => {
+    if (!id) return;
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
+      const [orgResponse, reposResponse, membersResponse] = await Promise.all([
+        api.get(`/api/organizations/${id}`),
+        api.get(`/api/organizations/${id}/repositories`),
+        api.get(`/api/organizations/${id}/members`)
+      ]);
       
-      // Fetch organization details
-      const orgResponse = await api.get(`/organizations/${orgName}`);
-      setOrganization(orgResponse.data.organization);
+      setOrganization(orgResponse.data);
+      setRepositories(reposResponse.data);
+      setMembers(membersResponse.data);
       
-      // Fetch repositories
-      const reposResponse = await api.get(`/organizations/${orgName}/repositories`);
-      setRepositories(reposResponse.data.repositories);
-      
-      // Fetch members
-      const membersResponse = await api.get(`/organizations/${orgName}/members`);
-      setMembers(membersResponse.data.members);
-      
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching organization data:', err);
-      setError('Failed to load organization data');
+      // Check if current user is admin or owner
+      if (user) {
+        const currentMember = membersResponse.data.find((member: OrganizationMember) => member.user_id === user.id);
+        if (currentMember) {
+          setIsAdmin(currentMember.role === 'ADMIN' || currentMember.role === 'OWNER');
+          setIsOwner(currentMember.role === 'OWNER');
+        }
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load organization details');
+      console.error('Error fetching organization details:', err);
+    } finally {
       setLoading(false);
     }
-  };
-  
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  }, [id, user]);
+
+  useEffect(() => {
+    fetchOrganizationDetails();
+  }, [fetchOrganizationDetails]);
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
-  
-  const handleJoinOrganization = async () => {
-    if (!organization) return;
+
+  const handleOpenInvite = () => {
+    setInviteEmail('');
+    setInviteRole('MEMBER');
+    setInviteError(null);
+    setOpenInviteDialog(true);
+  };
+
+  const handleInviteUser = async () => {
+    if (!id || !inviteEmail.trim()) return;
+    
+    setInviteLoading(true);
+    setInviteError(null);
     
     try {
-      await api.post(`/organizations/${organization.id}/join`);
+      await api.post(`/api/organizations/${id}/invite`, {
+        email: inviteEmail.trim(),
+        role: inviteRole
+      });
       
-      // Refresh data
-      fetchOrganizationData();
-    } catch (err) {
-      console.error('Error joining organization:', err);
-      setError('Failed to join organization');
+      // Refresh members list
+      const membersResponse = await api.get(`/api/organizations/${id}/members`);
+      setMembers(membersResponse.data);
+      
+      setOpenInviteDialog(false);
+    } catch (err: any) {
+      setInviteError(err.response?.data?.message || 'Failed to invite user');
+      console.error('Error inviting user:', err);
+    } finally {
+      setInviteLoading(false);
     }
   };
-  
+
+  const handleOpenEdit = () => {
+    if (!organization) return;
+    
+    setEditData({
+      name: organization.display_name || '',
+      description: organization.description || ''
+    });
+    setOpenEditDialog(true);
+  };
+
+  const handleEditOrganization = async () => {
+    if (!id || !editData.name.trim()) return;
+    
+    setEditLoading(true);
+    
+    try {
+      const response = await api.put(`/api/organizations/${id}`, {
+        display_name: editData.name.trim(),
+        description: editData.description.trim() || null
+      });
+      
+      setOrganization(response.data);
+      setOpenEditDialog(false);
+    } catch (err: any) {
+      console.error('Error updating organization:', err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleLeaveOrganization = async () => {
-    if (!organization || !user) return;
+    if (!id || !user) return;
+    
+    setActionLoading(true);
     
     try {
-      await api.delete(`/organizations/${organization.id}/leave`);
-      
-      // If the user is leaving, redirect to organizations list
+      await api.delete(`/api/organizations/${id}/leave`);
       navigate('/organizations');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error leaving organization:', err);
-      setError('Failed to leave organization');
+    } finally {
+      setActionLoading(false);
+      setConfirmLeaveOpen(false);
     }
   };
-  
-  const handleCreateRepository = () => {
-    if (!organization) return;
-    navigate(`/repositories/new?org=${organization.id}`);
+
+  const handleDeleteOrganization = async () => {
+    if (!id || !isOwner) return;
+    
+    setActionLoading(true);
+    
+    try {
+      await api.delete(`/api/organizations/${id}`);
+      navigate('/organizations');
+    } catch (err: any) {
+      console.error('Error deleting organization:', err);
+    } finally {
+      setActionLoading(false);
+      setConfirmDeleteOpen(false);
+    }
   };
-  
+
+  const handleUpdateMemberRole = async (memberId: string, newRole: 'ADMIN' | 'MEMBER') => {
+    if (!id) return;
+    
+    try {
+      await api.put(`/api/organizations/${id}/members/${memberId}/role`, {
+        role: newRole
+      });
+      
+      // Refresh members list
+      const membersResponse = await api.get(`/api/organizations/${id}/members`);
+      setMembers(membersResponse.data);
+    } catch (err: any) {
+      console.error('Error updating member role:', err);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!id) return;
+    
+    try {
+      await api.delete(`/api/organizations/${id}/members/${memberId}`);
+      
+      // Refresh members list
+      const membersResponse = await api.get(`/api/organizations/${id}/members`);
+      setMembers(membersResponse.data);
+    } catch (err: any) {
+      console.error('Error removing member:', err);
+    }
+  };
+
+  const handleCreateRepository = () => {
+    navigate(`/repositories/create?org=${id}`);
+  };
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
         <CircularProgress />
       </Box>
     );
   }
-  
+
   if (error || !organization) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="error">
+      <Container>
+        <Alert severity="error" sx={{ mt: 4 }}>
           {error || 'Organization not found'}
         </Alert>
       </Container>
     );
   }
-  
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Organization Header */}
+      <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
+        <Box display="flex" alignItems="center">
           <Avatar
-            src={organization.logo_image ? `/api/images/${organization.logo_image.id}` : undefined}
-            alt={organization.name}
-            sx={{ width: 100, height: 100, mr: 3 }}
+            src={organization.logo_image_id ? `/api/images/${organization.logo_image_id}` : undefined}
+            alt={organization.display_name}
+            sx={{ width: 80, height: 80, mr: 3 }}
           >
-            {organization.name.charAt(0).toUpperCase()}
+            {organization.display_name?.charAt(0) || organization.name.charAt(0)}
           </Avatar>
           
-          <Box sx={{ flexGrow: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="h4" component="h1">
-                {organization.name}
-              </Typography>
-              <Chip 
-                label={organization.is_public ? "Public" : "Private"} 
-                size="small" 
-                color={organization.is_public ? "success" : "default"}
-                sx={{ ml: 2 }}
-              />
-            </Box>
-            
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              {organization.description || 'No description available'}
+          <Box flex={1}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              {organization.display_name || organization.name}
             </Typography>
             
-            <Box sx={{ display: 'flex', mt: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
-                <strong>{organization.members_count}</strong> members
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              @{organization.name}
+            </Typography>
+            
+            {organization.description && (
+              <Typography variant="body1" paragraph>
+                {organization.description}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <strong>{organization.repositories_count}</strong> repositories
-              </Typography>
+            )}
+            
+            <Box display="flex" gap={2} mt={1}>
+              <Chip 
+                icon={<CodeIcon fontSize="small" />} 
+                label={`${organization.repository_count || repositories.length} Repositories`} 
+                variant="outlined" 
+              />
+              <Chip 
+                icon={<PersonIcon fontSize="small" />} 
+                label={`${organization.member_count || members.length} Members`} 
+                variant="outlined" 
+              />
+              <Chip 
+                icon={<StarIcon fontSize="small" />} 
+                label={`${organization.total_stars || 0} Stars`} 
+                variant="outlined" 
+              />
             </Box>
           </Box>
           
           <Box>
-            {!organization.is_member && user ? (
+            {isAdmin && (
               <Button 
-                variant="contained" 
-                onClick={handleJoinOrganization}
+                startIcon={<EditIcon />} 
+                variant="outlined" 
+                onClick={handleOpenEdit}
+                sx={{ mr: 1 }}
               >
-                Join Organization
+                Edit
               </Button>
-            ) : organization.is_member && !organization.is_admin ? (
+            )}
+            
+            {isOwner && (
               <Button 
+                startIcon={<DeleteIcon />} 
                 variant="outlined" 
                 color="error"
-                onClick={handleLeaveOrganization}
+                onClick={() => setConfirmDeleteOpen(true)}
               >
-                Leave Organization
+                Delete
               </Button>
-            ) : organization.is_admin && (
+            )}
+            
+            {user && !isOwner && (
               <Button 
+                startIcon={<LeaveIcon />} 
                 variant="outlined" 
-                startIcon={<EditIcon />}
-                onClick={() => setOpenEditDialog(true)}
+                color="warning"
+                onClick={() => setConfirmLeaveOpen(true)}
               >
-                Edit Organization
+                Leave
               </Button>
             )}
           </Box>
         </Box>
-        
+      </Paper>
+      
+      {/* Organization Content Tabs */}
+      <Paper elevation={1}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange} 
-            aria-label="organization tabs"
-          >
-            <Tab icon={<CodeIcon />} iconPosition="start" label="Repositories" />
-            <Tab icon={<PeopleIcon />} iconPosition="start" label="Members" />
-            {organization.is_admin && (
-              <Tab icon={<SettingsIcon />} iconPosition="start" label="Settings" />
-            )}
+          <Tabs value={tabValue} onChange={handleTabChange} aria-label="organization tabs">
+            <Tab label="Repositories" />
+            <Tab label="Members" />
           </Tabs>
         </Box>
         
-        <TabPanel value={tabValue} index={0}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6">
-              Repositories
-            </Typography>
-            
-            {organization.is_member && (
-              <Button 
-                variant="contained" 
-                startIcon={<AddIcon />}
-                onClick={handleCreateRepository}
-              >
-                New Repository
-              </Button>
-            )}
-          </Box>
-          
-          {repositories.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="body1" color="text.secondary" gutterBottom>
-                No repositories found.
-              </Typography>
-              {organization.is_member && (
-                <Button 
-                  variant="outlined" 
-                  startIcon={<AddIcon />}
-                  onClick={handleCreateRepository}
-                  sx={{ mt: 2 }}
-                >
-                  Create Repository
-                </Button>
+        {/* Repositories Tab */}
+        <Box role="tabpanel" hidden={tabValue !== 0} p={3}>
+          {tabValue === 0 && (
+            <>
+              {isAdmin && (
+                <Box display="flex" justifyContent="flex-end" mb={2}>
+                  <Button 
+                    startIcon={<AddIcon />} 
+                    variant="contained" 
+                    color="primary"
+                    onClick={handleCreateRepository}
+                  >
+                    Create Repository
+                  </Button>
+                </Box>
               )}
-            </Box>
-          ) : (
-            <RepositoryGrid repositories={repositories} />
+              
+              {repositories.length > 0 ? (
+                <RepositoryGrid repositories={repositories} />
+              ) : (
+                <Box display="flex" flexDirection="column" alignItems="center" p={4}>
+                  <CodeIcon fontSize="large" color="disabled" sx={{ mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No repositories yet
+                  </Typography>
+                  {isAdmin && (
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<AddIcon />}
+                      onClick={handleCreateRepository}
+                      sx={{ mt: 2 }}
+                    >
+                      Create Repository
+                    </Button>
+                  )}
+                </Box>
+              )}
+            </>
           )}
-        </TabPanel>
+        </Box>
         
-        <TabPanel value={tabValue} index={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6">
-              Members ({members.length})
-            </Typography>
-            
-            {organization.is_admin && (
-              <Button 
-                variant="contained" 
-                startIcon={<AddIcon />}
-                onClick={() => setOpenInviteDialog(true)}
-              >
-                Invite Member
-              </Button>
-            )}
-          </Box>
-          
-          {members.length === 0 ? (
-            <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-              No members found.
-            </Typography>
-          ) : (
-            <List>
-              {members.map((member, index) => (
-                <React.Fragment key={member.id}>
-                  <ListItem>
+        {/* Members Tab */}
+        <Box role="tabpanel" hidden={tabValue !== 1} p={3}>
+          {tabValue === 1 && (
+            <>
+              {isAdmin && (
+                <Box display="flex" justifyContent="flex-end" mb={2}>
+                  <Button 
+                    startIcon={<AddIcon />} 
+                    variant="contained" 
+                    color="primary"
+                    onClick={handleOpenInvite}
+                  >
+                    Invite Member
+                  </Button>
+                </Box>
+              )}
+              
+              <List>
+                {members.map((member) => (
+                  <ListItem key={member.id} divider>
                     <ListItemAvatar>
-                      <Avatar
-                        src={member.user.profile_image ? `/api/images/${member.user.profile_image.id}` : undefined}
-                        alt={member.user.username}
-                        onClick={() => navigate(`/users/${member.user.username}`)}
-                        sx={{ cursor: 'pointer' }}
+                      <Avatar 
+                        src={member.user?.profile_image_id ? `/api/images/${member.user.profile_image_id}` : undefined}
+                        alt={member.user?.username || ''}
                       >
-                        {member.user.username.charAt(0).toUpperCase()}
+                        {member.user?.username?.charAt(0) || 'U'}
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText
+                    
+                    <ListItemText 
                       primary={
-                        <Typography 
-                          variant="body1" 
-                          component="span"
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => navigate(`/users/${member.user.username}`)}
-                        >
-                          {member.user.username}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Chip 
-                            label={member.role === 'admin' ? 'Admin' : 'Member'} 
-                            size="small"
-                            color={member.role === 'admin' ? 'primary' : 'default'}
-                            sx={{ mr: 1 }}
-                          />
+                        <Box display="flex" alignItems="center">
+                          <Typography variant="body1">
+                            {member.user?.full_name || member.user?.username || 'Unknown User'}
+                          </Typography>
+                          {member.role === 'OWNER' && (
+                            <Chip 
+                              label="Owner" 
+                              size="small" 
+                              color="primary" 
+                              sx={{ ml: 1 }} 
+                            />
+                          )}
+                          {member.role === 'ADMIN' && (
+                            <Chip 
+                              label="Admin" 
+                              size="small" 
+                              color="secondary" 
+                              sx={{ ml: 1 }} 
+                            />
+                          )}
                         </Box>
                       }
+                      secondary={
+                        <Typography variant="body2" color="text.secondary">
+                          @{member.user?.username || 'unknown'}
+                        </Typography>
+                      }
                     />
-                    {organization.is_admin && user?.id !== member.user_id && (
+                    
+                    {isAdmin && member.user_id !== user?.id && (
                       <ListItemSecondaryAction>
-                        <Button 
-                          size="small" 
-                          variant="outlined"
-                          disabled
-                        >
-                          Manage
-                        </Button>
+                        {isOwner && member.role !== 'OWNER' && (
+                          <FormControl variant="outlined" size="small" sx={{ minWidth: 120, mr: 1 }}>
+                            <Select
+                              value={member.role}
+                              onChange={(e) => handleUpdateMemberRole(member.id, e.target.value as 'ADMIN' | 'MEMBER')}
+                              displayEmpty
+                            >
+                              <MenuItem value="ADMIN">Admin</MenuItem>
+                              <MenuItem value="MEMBER">Member</MenuItem>
+                            </Select>
+                          </FormControl>
+                        )}
+                        
+                        {(isOwner || (isAdmin && member.role === 'MEMBER')) && (
+                          <IconButton edge="end" onClick={() => handleRemoveMember(member.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
                       </ListItemSecondaryAction>
                     )}
                   </ListItem>
-                  {index < members.length - 1 && <Divider component="li" />}
-                </React.Fragment>
-              ))}
-            </List>
-          )}
-        </TabPanel>
-        
-        {organization.is_admin && (
-          <TabPanel value={tabValue} index={2}>
-            <Typography variant="h6" gutterBottom>
-              Organization Settings
-            </Typography>
-            
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Danger Zone
-              </Typography>
+                ))}
+              </List>
               
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fff8f8' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body1" color="error">
-                      Delete this organization
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Once deleted, it cannot be recovered.
-                    </Typography>
-                  </Box>
-                  <Button 
-                    variant="outlined" 
-                    color="error"
-                    disabled
-                  >
-                    Delete Organization
-                  </Button>
+              {members.length === 0 && (
+                <Box display="flex" flexDirection="column" alignItems="center" p={4}>
+                  <PersonIcon fontSize="large" color="disabled" sx={{ mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No members yet
+                  </Typography>
                 </Box>
-              </Paper>
-            </Box>
-          </TabPanel>
-        )}
+              )}
+            </>
+          )}
+        </Box>
       </Paper>
-      
+
       {/* Invite Member Dialog */}
-      <InviteMemberDialog 
-        open={openInviteDialog}
-        onClose={() => setOpenInviteDialog(false)}
-        organizationId={organization.id}
-        onMemberInvited={fetchOrganizationData}
-      />
-      
-      {/* Edit Organization Dialog */}
-      <EditOrganizationDialog 
-        open={openEditDialog}
-        onClose={() => setOpenEditDialog(false)}
-        organization={organization}
-        onOrganizationUpdated={fetchOrganizationData}
-      />
-    </Container>
-  );
-};
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`org-tabpanel-${index}`}
-      aria-labelledby={`org-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ py: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-interface InviteMemberDialogProps {
-  open: boolean;
-  onClose: () => void;
-  organizationId: string;
-  onMemberInvited: () => void;
-}
-
-const InviteMemberDialog: React.FC<InviteMemberDialogProps> = ({ 
-  open, 
-  onClose, 
-  organizationId, 
-  onMemberInvited 
-}) => {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState('member');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  
-  const handleRoleChange = (event: SelectChangeEvent) => {
-    setRole(event.target.value);
-  };
-  
-  const handleInvite = async () => {
-    if (!email) {
-      setError('Email is required');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      await api.post(`/organizations/${organizationId}/invite`, {
-        email,
-        role
-      });
-      
-      setSuccess(true);
-      setEmail('');
-      
-      // Refresh members list
-      onMemberInvited();
-      
-      // Close dialog after a delay
-      setTimeout(() => {
-        onClose();
-        setSuccess(false);
-      }, 1500);
-      
-      setLoading(false);
-    } catch (err: any) {
-      console.error('Error inviting member:', err);
-      setError(err.response?.data?.message || 'Failed to invite member');
-      setLoading(false);
-    }
-  };
-  
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Invite Member</DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Invitation sent successfully!
-          </Alert>
-        )}
-        
-        <DialogContentText>
-          Enter the email address of the person you want to invite to this organization.
-        </DialogContentText>
-        
-        <TextField
-          margin="dense"
-          label="Email Address"
-          type="email"
-          fullWidth
-          variant="outlined"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          sx={{ mb: 2, mt: 2 }}
-          InputProps={{
-            startAdornment: <EmailIcon sx={{ color: 'text.secondary', mr: 1 }} />
-          }}
-        />
-        
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="role-select-label">Role</InputLabel>
-          <Select
-            labelId="role-select-label"
-            value={role}
-            label="Role"
-            onChange={handleRoleChange}
-          >
-            <MenuItem value="member">Member</MenuItem>
-            <MenuItem value="admin">Admin</MenuItem>
-          </Select>
-        </FormControl>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button 
-          onClick={handleInvite} 
-          variant="contained"
-          disabled={loading || !email}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Send Invitation
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-interface EditOrganizationDialogProps {
-  open: boolean;
-  onClose: () => void;
-  organization: Organization;
-  onOrganizationUpdated: () => void;
-}
-
-const EditOrganizationDialog: React.FC<EditOrganizationDialogProps> = ({ 
-  open, 
-  onClose, 
-  organization,
-  onOrganizationUpdated
-}) => {
-  const [formData, setFormData] = useState({
-    name: organization.name,
-    description: organization.description,
-    is_public: organization.is_public
-  });
-  const [orgLogo, setOrgLogo] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(
-    organization.logo_image ? `/api/images/${organization.logo_image.id}` : null
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-  
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setOrgLogo(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setLogoPreview(e.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
-  const handleSubmit = async () => {
-    if (!formData.name) {
-      setError('Organization name is required');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Update organization
-      await api.put(`/organizations/${organization.id}`, {
-        name: formData.name,
-        description: formData.description,
-        is_public: formData.is_public
-      });
-      
-      // Upload logo if changed
-      if (orgLogo) {
-        const logoFormData = new FormData();
-        logoFormData.append('logo', orgLogo);
-        
-        await api.post(`/organizations/${organization.id}/logo`, logoFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-      }
-      
-      setSuccess(true);
-      
-      // Refresh organization data
-      onOrganizationUpdated();
-      
-      // Close dialog after a delay
-      setTimeout(() => {
-        onClose();
-        setSuccess(false);
-      }, 1500);
-      
-      setLoading(false);
-    } catch (err: any) {
-      console.error('Error updating organization:', err);
-      setError(err.response?.data?.message || 'Failed to update organization');
-      setLoading(false);
-    }
-  };
-  
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Edit Organization</DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Organization updated successfully!
-          </Alert>
-        )}
-        
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, mt: 2 }}>
-          <Avatar
-            src={logoPreview || undefined}
-            sx={{ width: 80, height: 80, mr: 2 }}
-          >
-            {formData.name ? formData.name.charAt(0).toUpperCase() : organization.name.charAt(0).toUpperCase()}
-          </Avatar>
+      <Dialog open={openInviteDialog} onClose={() => setOpenInviteDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Invite Member</DialogTitle>
+        <DialogContent>
+          {inviteError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {inviteError}
+            </Alert>
+          )}
           
-          <Button
-            component="label"
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Email Address"
+            type="email"
+            fullWidth
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
             variant="outlined"
-            size="small"
-          >
-            Change Logo
-            <input
-              type="file"
-              hidden
-              accept="image/*"
-              onChange={handleLogoChange}
-            />
-          </Button>
-        </Box>
-        
-        <TextField
-          label="Organization Name"
-          name="name"
-          value={formData.name}
-          onChange={handleInputChange}
-          fullWidth
-          required
-          sx={{ mb: 2 }}
-        />
-        
-        <TextField
-          label="Description"
-          name="description"
-          value={formData.description}
-          onChange={handleInputChange}
-          multiline
-          rows={3}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        
-        <FormControl component="fieldset" sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={formData.is_public}
-                onChange={handleInputChange}
-                name="is_public"
-              />
-            }
-            label={`This organization is ${formData.is_public ? 'public' : 'private'}`}
+            sx={{ mb: 2 }}
           />
-          <Typography variant="caption" color="text.secondary">
-            Public organizations are visible to all users. Private organizations are only visible to members.
+          
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>Role</InputLabel>
+            <Select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as 'ADMIN' | 'MEMBER')}
+              label="Role"
+              disabled={!isOwner}
+            >
+              {isOwner && <MenuItem value="ADMIN">Admin</MenuItem>}
+              <MenuItem value="MEMBER">Member</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenInviteDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleInviteUser} 
+            variant="contained" 
+            color="primary"
+            disabled={inviteLoading || !inviteEmail.trim()}
+          >
+            {inviteLoading ? <CircularProgress size={24} /> : 'Invite'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Organization Dialog */}
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Organization</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Display Name"
+            fullWidth
+            value={editData.name}
+            onChange={(e) => setEditData({...editData, name: e.target.value})}
+            variant="outlined"
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="dense"
+            label="Description"
+            fullWidth
+            multiline
+            rows={4}
+            value={editData.description}
+            onChange={(e) => setEditData({...editData, description: e.target.value})}
+            variant="outlined"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleEditOrganization} 
+            variant="contained" 
+            color="primary"
+            disabled={editLoading || !editData.name.trim()}
+          >
+            {editLoading ? <CircularProgress size={24} /> : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Leave Dialog */}
+      <Dialog open={confirmLeaveOpen} onClose={() => setConfirmLeaveOpen(false)}>
+        <DialogTitle>Leave Organization</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to leave this organization? You will lose access to all private repositories.
           </Typography>
-        </FormControl>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button 
-          onClick={handleSubmit} 
-          variant="contained"
-          disabled={loading || !formData.name}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          Save Changes
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmLeaveOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleLeaveOrganization} 
+            variant="contained" 
+            color="error"
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={24} /> : 'Leave'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+        <DialogTitle>Delete Organization</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this organization? This action cannot be undone.
+            All repositories, prompts, and other data will be permanently deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleDeleteOrganization} 
+            variant="contained" 
+            color="error"
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={24} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

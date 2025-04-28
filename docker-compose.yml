@@ -10,7 +10,6 @@ services:
       POSTGRES_DB: prompt_management_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/prompt-lab-db.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -25,13 +24,19 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: development
     container_name: promptlab-backend
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:password@localhost:5432/prompt_management_db
+      - PORT=3001
+      - DATABASE_URL=postgresql://promptlab:promptlab_password@postgres:5432/prompt_management_db
+      - JWT_SECRET=your_super_secret_jwt_token_key
+      - JWT_EXPIRATION=7d
+      - CORS_ORIGIN=http://localhost:3000
+      - LOG_LEVEL=debug
     ports:
       - "3001:3001"
     volumes:
@@ -40,14 +45,18 @@ services:
     networks:
       - promptlab-network
     restart: unless-stopped
+    command: npm run start:dev
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development
     container_name: promptlab-frontend
     depends_on:
       - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001/api
     ports:
       - "3000:3000"
     volumes:
@@ -56,6 +65,7 @@ services:
     networks:
       - promptlab-network
     restart: unless-stopped
+    command: npm start
 
 networks:
   promptlab-network:

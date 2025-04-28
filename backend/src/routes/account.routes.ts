@@ -4,6 +4,7 @@ import accountController from '../controllers/account.controller';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/authenticate';
 import multer from 'multer';
+import repositoryController from '../controllers/repository.controller';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -43,9 +44,9 @@ const upload = multer({ storage: multer.memoryStorage() });
  *       201:
  *         description: User registered successfully
  *       400:
- *         description: User already exists
+ *         $ref: '#/components/responses/ValidationError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.post(
   '/register',
@@ -83,9 +84,9 @@ router.post(
  *       200:
  *         description: Login successful
  *       401:
- *         description: Invalid credentials
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.post(
   '/login',
@@ -101,21 +102,17 @@ router.post(
  * @swagger
  * /api/accounts/user/{username}:
  *   get:
- *     summary: Get user by username
+ *     summary: Get user by username with repositories
  *     tags: [Accounts]
  *     parameters:
- *       - in: path
- *         name: username
- *         required: true
- *         schema:
- *           type: string
+ *       - $ref: '#/components/parameters/usernameParam'
  *     responses:
  *       200:
- *         description: User found
+ *         description: User found with repositories
  *       404:
- *         description: User not found
+ *         $ref: '#/components/responses/NotFoundError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.get('/user/:username', accountController.getUserByUsername);
 
@@ -294,9 +291,9 @@ router.get(
 
 /**
  * @swagger
- * /api/accounts/profile/{username}:
+ * /api/accounts/user/{username}/starred:
  *   get:
- *     summary: Get user profile with repositories
+ *     summary: Get repositories starred by a user
  *     tags: [Accounts]
  *     parameters:
  *       - in: path
@@ -304,14 +301,45 @@ router.get(
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
- *         description: User profile with repositories 
+ *         description: List of starred repositories
  *       404:
  *         description: User not found
  *       500:
  *         description: Server error
  */
-router.get('/profile/:username', accountController.getUserProfile);
+router.get('/user/:username/starred', repositoryController.getUserStarredRepositories);
+
+/**
+ * @swagger
+ * /api/accounts/me/starred:
+ *   get:
+ *     summary: Get repositories starred by the current authenticated user
+ *     tags: [Accounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/pageParam'
+ *       - $ref: '#/components/parameters/limitParam'
+ *     responses:
+ *       200:
+ *         description: List of repositories starred by current user
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get('/me/starred', authenticate, repositoryController.getMyStarredRepositories);
 
 export default router; 

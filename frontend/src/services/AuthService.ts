@@ -4,7 +4,7 @@ import { User, RegisterData } from '../interfaces';
 export interface AuthResponse {
   token: string;
   user: User;
-  message: string;
+  message?: string;
 }
 
 /**
@@ -12,35 +12,36 @@ export interface AuthResponse {
  */
 const handleApiError = (error: any): Error => {
   if (error.response) {
-    // The request was made and the server responded with a status code
-    // that falls out of the range of 2xx
     const { status, data } = error.response;
     
-    if (status === 400) {
-      // Bad request - validation errors
-      if (data.message) {
-        return new Error(data.message);
-      }
-      return new Error('Invalid input data. Please check your information and try again.');
-    } else if (status === 401) {
-      // Unauthorized
-      return new Error('Authentication failed. ' + (data.message || 'Please check your credentials.'));
-    } else if (status === 404) {
-      // Not found
-      return new Error('Resource not found. ' + (data.message || 'Please try again later.'));
-    } else if (status >= 500) {
-      // Server error
-      return new Error('Server error. Please try again later.');
-    }
+    // Get the error message from the response data
+    const errorMessage = data.message || data.error || 'An error occurred';
     
-    // Other status codes
-    return new Error(data.message || 'An error occurred. Please try again.');
+    switch (status) {
+      case 400:
+        return new Error(`Invalid request: ${errorMessage}`);
+      // case 401:
+      //   return new Error(`Authentication failed: ${errorMessage}`);
+      case 403:
+        return new Error(`Access denied: ${errorMessage}`);
+      case 404:
+        return new Error(`Not found: ${errorMessage}`);
+      case 409:
+        return new Error(`Conflict: ${errorMessage}`);
+      case 429:
+        return new Error('Too many requests. Please try again later.');
+      default:
+        return new Error(status >= 500 
+          ? 'Server error. Please try again later.' 
+          : `Error: ${errorMessage}`
+        );
+    }
+  } else if (error.code === 'ECONNABORTED') {
+    return new Error('Request timed out. Please check your connection.');
   } else if (error.request) {
-    // The request was made but no response was received
     return new Error('No response from server. Please check your internet connection.');
   } else {
-    // Something happened in setting up the request that triggered an Error
-    return new Error('Request error: ' + error.message);
+    return new Error(`Request failed: ${error.message}`);
   }
 };
 
@@ -65,7 +66,13 @@ export class AuthService {
    */
   static async register(registerData: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await api.post('/accounts/register', registerData);
+      const response = await api.post('/accounts/register', {
+        ...registerData,
+        username: registerData.username.trim(),
+        email: registerData.email.trim(),
+        password: registerData.password.trim(),
+        ...(registerData.full_name && { full_name: registerData.full_name.trim() })
+      });
       return response.data;
     } catch (error) {
       throw handleApiError(error);
@@ -73,16 +80,76 @@ export class AuthService {
   }
 
   /**
-   * Check if token is valid
+   * Get current user profile
    */
-  static async validateToken(token: string): Promise<boolean> {
+  static async getCurrentUser(): Promise<User> {
     try {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      await api.get('/accounts/me');
-      return true;
+      const response = await api.get('/accounts/me');
+      return response.data;
     } catch (error) {
-      console.error('Token validation error:', error);
-      return false;
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Update user profile
+   */
+  static async updateProfile(profileData: {
+    bio?: string;
+    email?: string;
+    full_name?: string;
+  }): Promise<User> {
+    try {
+      const response = await api.put('/accounts/profile', profileData);
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Change password
+   */
+  static async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      await api.put('/accounts/password', {
+        currentPassword: currentPassword.trim(),
+        newPassword: newPassword.trim()
+      });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Upload profile image
+   */
+  static async uploadProfileImage(file: File): Promise<{ image_id: string }> {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await api.post('/accounts/profile-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Get user by username
+   */
+  static async getUserByUsername(username: string): Promise<User> {
+    try {
+      const response = await api.get(`/accounts/user/${encodeURIComponent(username)}`);
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
     }
   }
 }

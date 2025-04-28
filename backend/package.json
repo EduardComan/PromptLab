@@ -5,19 +5,23 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "prisma generate && nodemon src/index.ts",
+    "dev": "nodemon src/index.ts",
     "dev:win": "powershell -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "build": "prisma generate && tsc",
     "test": "jest",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset --force",
-    "db:seed": "prisma db seed",
+    "db:seed": "ts-node prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "start:dev": "npm run prisma:generate && npm run dev",
-    "setup": "node -e \"console.log('Running setup script for ' + process.platform); process.platform === 'win32' ? require('child_process').execSync('powershell -ExecutionPolicy Bypass -File ./scripts/setup.ps1', {stdio: 'inherit'}) : require('child_process').execSync('bash ./scripts/setup.sh', {stdio: 'inherit'});\""
+    "setup": "npm run migrate:deploy && npm run db:seed",
+    "setup:dev": "npm run migrate:dev && npm run db:seed"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",

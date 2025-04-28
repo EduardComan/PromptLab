@@ -1,102 +1,110 @@
 # PromptLab
 
-A professional platform for managing, testing, and analyzing AI prompts.
+PromptLab is a comprehensive prompt management system for AI applications.
 
-## Project Structure
+## Prerequisites
 
-The application is divided into two main parts:
+- [Docker](https://www.docker.com/get-started) and Docker Compose
+- Git
 
-- **Frontend**: React application with TypeScript
-- **Backend**: Node.js Express API with TypeScript and Prisma ORM
+## Installation
 
-## Getting Started
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/PromptLab.git
+   cd PromptLab
+   ```
 
-### Prerequisites
+2. Make the start script executable (Linux/Mac only):
+   ```
+   chmod +x start.sh
+   ```
 
-- Node.js (>= 16.x)
-- npm or yarn
-- PostgreSQL database
+## Running the Application
 
-### Installation and Setup
+### Using the provided scripts
 
-#### Backend
-
-```bash
-# Navigate to backend directory
-cd backend
-
-# Install dependencies
-npm install
-
-# Set up environment variables - copy the example file and modify as needed
-cp .env.example .env
-
-# Run database migrations
-npm run migrate
-
-# Start the development server
-npm run dev
+#### On Windows:
+```
+.\start.ps1
 ```
 
-#### Frontend
-
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies
-npm install
-
-# Set up environment variables - copy the example file and modify as needed
-cp .env.example .env
-
-# Start the development server
-npm start
+#### On Linux/Mac:
+```
+./start.sh
 ```
 
-## Docker Setup
+These scripts will:
+- Stop any existing containers
+- Build and start the application containers
+- Display backend logs to help with debugging
 
-The application can also be run using Docker:
+### Manually (alternative method)
 
-```bash
-# Build and start all services
-docker-compose up -d
+1. Start the application with Docker Compose:
+   ```
+   docker-compose up -d --build
+   ```
 
-# To rebuild the services
-docker-compose up -d --build
+2. View logs (optional):
+   ```
+   docker-compose logs -f
+   ```
+
+3. The application will be available at:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:3001/api
+   - API Documentation: http://localhost:3001/api-docs
+
+## Default Users
+
+The application comes with two pre-configured users:
+
+1. Admin User:
+   - Username: admin
+   - Password: admin123
+   - Email: admin@promptlab.com
+
+2. Test User:
+   - Username: testuser
+   - Password: test123
+   - Email: test@promptlab.com
+
+## Stopping the Application
+
 ```
-
-## Features
-
-- User authentication and authorization
-- Repository management for AI prompts
-- Prompt testing and execution
-- Analytics and performance tracking
-- Organization-level access control
+docker-compose down
+```
 
 ## Development
 
-### Backend Structure
+### Frontend
 
-- `src/controllers/`: Request handlers and business logic
-- `src/routes/`: API route definitions
-- `src/middleware/`: Express middleware
-- `src/services/`: Business logic and services
-- `src/utils/`: Helper functions and utilities
-- `prisma/`: Database schema and migrations
+The frontend is a React application located in the `frontend` directory.
 
-### Frontend Structure
+- To install dependencies: `cd frontend && npm install`
+- To run in development mode: `cd frontend && npm start`
 
-- `src/components/`: Reusable UI components
-- `src/pages/`: Page-level components
-- `src/features/`: Feature-specific components and logic
-- `src/contexts/`: React context providers
-- `src/services/`: API service functions
+### Backend
+
+The backend is a Node.js/Express application located in the `backend` directory.
+
+- To install dependencies: `cd backend && npm install`
+- To run in development mode: `cd backend && npm run dev`
+- To run database migrations: `cd backend && npm run migrate:dev`
+- To seed the database: `cd backend && npm run db:seed`
+
+## Technologies Used
+
+- **Frontend**: React, Material-UI, Axios
+- **Backend**: Node.js, Express, Prisma ORM
+- **Database**: PostgreSQL
+- **Containerization**: Docker, Docker Compose
 
 ## API Documentation
 
-The API documentation is available at `/api-docs` when the backend server is running.
+The API documentation is available at http://localhost:3001/api-docs when the application is running.
 
 ## License
 
-[MIT](LICENSE)
+MIT

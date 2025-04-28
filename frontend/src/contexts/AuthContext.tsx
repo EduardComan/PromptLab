@@ -4,6 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 import { User, RegisterData } from '../interfaces';
 import AuthService from '../services/AuthService';
 import UserService from '../services/UserService';
+import { authEvent } from '../services/api';
 
 // Define the AuthContextType
 interface AuthContextType {
@@ -50,29 +51,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           if (decodedToken.exp < currentTime) {
             // Token expired
+            console.log('Token expired, logging out...');
             localStorage.removeItem('token');
             setToken(null);
             setUser(null);
             delete axios.defaults.headers.common['Authorization'];
           } else {
             // Valid token, load user
+            console.log('Valid token, loading user data...');
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            const userData = await UserService.getCurrentUser();
-            setUser(userData);
+            try {
+              const userData = await UserService.getCurrentUser();
+              console.log('User data loaded:', userData);
+              
+              if (!userData) {
+                throw new Error('No user data returned from server');
+              }
+              
+              setUser(userData);
+            } catch (error) {
+              console.error('Error loading user data:', error);
+              // Token valid but can't get user data, clear token
+              localStorage.removeItem('token');
+              setToken(null);
+              setUser(null);
+              delete axios.defaults.headers.common['Authorization'];
+            }
           }
         } catch (err) {
           // Invalid token
+          console.error('Invalid token:', err);
           localStorage.removeItem('token');
           setToken(null);
           setUser(null);
           delete axios.defaults.headers.common['Authorization'];
         }
+      } else {
+        setIsLoading(false);
       }
       setIsLoading(false);
     };
 
     loadUser();
   }, [token]);
+
+  // Add useEffect to listen for logout events
+  useEffect(() => {
+    // Listen for logout events from API service
+    const handleLogout = () => {
+      setUser(null);
+      localStorage.removeItem('token');
+    };
+    
+    authEvent.addEventListener('logout', handleLogout);
+    
+    return () => {
+      authEvent.removeEventListener('logout', handleLogout);
+    };
+  }, []);
 
   // Login function
   const login = async (username: string, password: string) => {

@@ -194,3 +194,17 @@ model OrgMembership {
 
   @@map("org_memberships")
 }
+
+model Notification {
+  id           String   @id @default(uuid())
+  recipient_id String   @map("recipient_id")
+  type         String // COMMENT_POSTED, REPO_STARRED, USER_FOLLOWED, MERGE_REQUEST_CREATED, MERGE_REQUEST_APPROVED, MERGE_REQUEST_REJECTED, MERGE_REQUEST_MERGED, ADDED_TO_ORG, BADGE_EARNED
+  message      String
+  is_read      Boolean  @default(false) @map("is_read")
+  reference_id String?  @map("reference_id") // Optional ID to navigate to when clicked
+  created_at   DateTime @default(now()) @map("created_at")
+  updated_at   DateTime @updatedAt @map("updated_at")
+  recipient    Account  @relation("UserNotifications", fields: [recipient_id], references: [id])
+
+  @@map("notifications")
+}

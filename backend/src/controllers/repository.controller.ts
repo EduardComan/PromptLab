@@ -5,78 +5,82 @@ import { Prisma } from '@prisma/client';
 // Create a new repository
 export const createRepository = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, description, isPublic, ownerType, orgId } = req.body;
+    const { name, description, is_public, org_id, default_prompt_title, default_prompt_content } = req.body;
     const userId = req.user.id;
     
-    // Use transaction with correct typing
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Determine ownership (user or organization)
-      const ownerUserId = ownerType === 'organization' ? null : userId;
-      const ownerOrgId = ownerType === 'organization' ? orgId : null;
-      
-      // If creating under an organization, check membership
-      if (ownerType === 'organization' && orgId) {
-        const orgMembership = await tx.orgMembership.findFirst({
-          where: {
-            org_id: orgId,
-            user_id: userId
-          }
-        });
-        
-        if (!orgMembership) {
-          throw new Error('You do not have permission to create repositories in this organization');
+    // Validate organization access if org_id is provided
+    if (org_id) {
+      const orgMember = await prisma.orgMembership.findFirst({
+        where: {
+          org_id: org_id,
+          user_id: userId
         }
-      }
+      });
       
-      // Create repository
+      if (!orgMember) {
+        res.status(403).json({ message: 'You are not a member of this organization' });
+        return;
+      }
+    }
+    
+    // Use transaction to create repository and default prompt
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the repository
       const repository = await tx.repository.create({
         data: {
           name,
           description,
-          is_public: isPublic || false,
-          owner_user_id: ownerUserId,
-          owner_org_id: ownerOrgId
+          is_public: is_public || false,
+          owner_user_id: userId,
+          owner_org_id: org_id
         }
       });
       
-      // Create initial prompt in the repository
-      const prompt = await tx.prompt.create({
-        data: {
-          repository_id: repository.id,
-          title: name,
-          description: description || ''
-        }
-      });
+      // Create a default prompt if title is provided
+      let prompt = null;
+      let promptVersion = null;
       
-      return { repository, prompt };
+      if (default_prompt_title) {
+        prompt = await tx.prompt.create({
+          data: {
+            repository_id: repository.id,
+            title: default_prompt_title,
+            description: 'Default repository prompt'
+          }
+        });
+        
+        promptVersion = await tx.promptVersion.create({
+          data: {
+            prompt_id: prompt.id,
+            content_snapshot: default_prompt_content || '',
+            commit_message: 'Initial version',
+            author_id: userId,
+            version_number: 1
+          }
+        });
+      }
+      
+      return { repository, prompt, promptVersion };
     });
-
+    
     res.status(201).json({
       message: 'Repository created successfully',
-      repository: {
-        id: result.repository.id,
-        name: result.repository.name,
-        description: result.repository.description,
-        is_public: result.repository.is_public,
-        owner_user_id: result.repository.owner_user_id,
-        owner_org_id: result.repository.owner_org_id,
-        created_at: result.repository.created_at
-      },
-      prompt: {
+      repository: result.repository,
+      default_prompt: result.prompt ? {
         id: result.prompt.id,
-        title: result.prompt.title
-      }
+        title: result.prompt.title,
+        version: {
+          id: result.promptVersion?.id,
+          version_number: result.promptVersion?.version_number
+        }
+      } : null
     });
-  } catch (error: unknown) {
+  } catch (error: any) {
     logger.error('Error creating repository:', error);
-    if (error instanceof Error && error.message.includes('permission')) {
-      res.status(403).json({ message: error.message });
-    } else {
-      res.status(500).json({
-        message: 'Error creating repository',
-        error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
-      });
-    }
+    res.status(500).json({
+      message: 'Error creating repository',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -104,7 +108,29 @@ export const getRepositoryById = async (req: Request, res: Response): Promise<vo
           select: {
             id: true,
             title: true,
-            description: true
+            description: true,
+            metadata_json: true,
+            created_at: true,
+            updated_at: true,
+            versions: {
+              orderBy: {
+                version_number: 'desc'
+              },
+              take: 1,
+              select: {
+                id: true,
+                version_number: true,
+                content_snapshot: true,
+                commit_message: true,
+                created_at: true,
+                author: {
+                  select: {
+                    id: true,
+                    username: true
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -176,8 +202,16 @@ export const getRepositoryById = async (req: Request, res: Response): Promise<vo
       isStarred = !!star;
     }
     
+    // Since repository-prompt is 1:1, extract the primary prompt for easier access
+    const primaryPrompt = repository.prompts && repository.prompts.length > 0 
+      ? repository.prompts[0] 
+      : null;
+    
     res.status(200).json({
-      repository,
+      repository: {
+        ...repository,
+        primaryPrompt
+      },
       metrics: {
         stars: starCount,
         isStarred
@@ -356,7 +390,21 @@ export const listRepositories = async (req: Request, res: Response): Promise<voi
         prompts: {
           select: {
             id: true,
-            title: true
+            title: true,
+            description: true,
+            created_at: true,
+            updated_at: true,
+            versions: {
+              orderBy: {
+                version_number: 'desc'
+              },
+              take: 1,
+              select: {
+                id: true,
+                version_number: true,
+                created_at: true
+              }
+            }
           }
         }
       },
@@ -367,8 +415,14 @@ export const listRepositories = async (req: Request, res: Response): Promise<voi
       skip: offset
     });
     
+    // Add primaryPrompt to each repository
+    const enhancedRepositories = repositories.map(repo => ({
+      ...repo,
+      primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null
+    }));
+    
     res.status(200).json({
-      repositories,
+      repositories: enhancedRepositories,
       pagination: {
         total: count,
         page: parseInt(page as string),
@@ -547,14 +601,24 @@ export const getUserRepositories = async (req: Request, res: Response): Promise<
       return;
     }
     
-    // Count total repositories for this user
-    const count = await prisma.repository.count({
-      where: { owner_user_id: user.id }
-    });
+    // Build where clause based on auth status
+    let where: any = { owner_user_id: user.id };
     
-    // Get repositories where the user is the owner
+    // Check if the current user is authorized to see private repositories
+    const currentUserId = req.user?.id;
+    const isOwner = currentUserId === user.id;
+    
+    // If not the owner, only show public repositories
+    if (!isOwner) {
+      where.is_public = true;
+    }
+    
+    // Count total repositories for this user
+    const count = await prisma.repository.count({ where });
+    
+    // Get repositories where the user is the owner, respecting visibility
     const repositories = await prisma.repository.findMany({
-      where: { owner_user_id: user.id },
+      where,
       include: {
         owner_user: {
           select: {
@@ -567,6 +631,32 @@ export const getUserRepositories = async (req: Request, res: Response): Promise<
             id: true,
             name: true
           }
+        },
+        prompts: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            created_at: true,
+            updated_at: true,
+            versions: {
+              orderBy: {
+                version_number: 'desc'
+              },
+              take: 1,
+              select: {
+                id: true,
+                version_number: true,
+                content_snapshot: true,
+                created_at: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            stars: true
+          }
         }
       },
       take: limit,
@@ -576,8 +666,22 @@ export const getUserRepositories = async (req: Request, res: Response): Promise<
       }
     });
     
+    // Transform the repositories to include primaryPrompt and stars count
+    const transformedRepositories = repositories.map(repo => ({
+      id: repo.id,
+      name: repo.name,
+      description: repo.description,
+      is_public: repo.is_public,
+      created_at: repo.created_at,
+      updated_at: repo.updated_at,
+      owner_user: repo.owner_user,
+      owner_org: repo.owner_org,
+      primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null,
+      stars_count: repo._count.stars
+    }));
+    
     res.status(200).json({
-      repositories,
+      repositories: transformedRepositories,
       user: {
         id: user.id,
         username: user.username
@@ -623,7 +727,22 @@ export const getTrendingRepositories = async (req: Request, res: Response): Prom
         },
         prompts: {
           select: {
-            id: true
+            id: true,
+            title: true,
+            description: true,
+            created_at: true,
+            updated_at: true,
+            versions: {
+              orderBy: {
+                version_number: 'desc'
+              },
+              take: 1,
+              select: {
+                id: true,
+                version_number: true,
+                created_at: true
+              }
+            }
           }
         },
         _count: {
@@ -638,7 +757,7 @@ export const getTrendingRepositories = async (req: Request, res: Response): Prom
       take: limit
     });
     
-    // Format response
+    // Format response with primaryPrompt field
     const formattedRepos = repositories.map((repo: any) => ({
       id: repo.id,
       name: repo.name,
@@ -648,6 +767,7 @@ export const getTrendingRepositories = async (req: Request, res: Response): Prom
       updated_at: repo.updated_at,
       owner_user: repo.owner_user,
       owner_org: repo.owner_org,
+      primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null,
       metrics: {
         promptCount: repo.prompts.length,
         starCount: repo._count.stars
@@ -717,7 +837,22 @@ export const getRecentRepositories = async (req: Request, res: Response): Promis
         },
         prompts: {
           select: {
-            id: true
+            id: true,
+            title: true,
+            description: true,
+            created_at: true,
+            updated_at: true,
+            versions: {
+              orderBy: {
+                version_number: 'desc'
+              },
+              take: 1,
+              select: {
+                id: true,
+                version_number: true,
+                created_at: true
+              }
+            }
           }
         },
         _count: {
@@ -732,7 +867,7 @@ export const getRecentRepositories = async (req: Request, res: Response): Promis
       take: limit
     });
     
-    // Format response
+    // Format response with primaryPrompt field
     const formattedRepos = repositories.map((repo: any) => ({
       id: repo.id,
       name: repo.name,
@@ -742,6 +877,7 @@ export const getRecentRepositories = async (req: Request, res: Response): Promis
       updated_at: repo.updated_at,
       owner_user: repo.owner_user,
       owner_org: repo.owner_org,
+      primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null,
       metrics: {
         promptCount: repo.prompts.length,
         starCount: repo._count.stars
@@ -760,6 +896,522 @@ export const getRecentRepositories = async (req: Request, res: Response): Promis
   }
 };
 
+// Get repositories starred by a specific user
+export const getUserStarredRepositories = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { username } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+    
+    // Find the user by username
+    const user = await prisma.account.findFirst({
+      where: { username: username as string },
+      select: { id: true, username: true }
+    });
+    
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    
+    // Get repositories that the user has starred
+    const stars = await prisma.star.findMany({
+      where: { user_id: user.id },
+      include: {
+        repository: {
+          include: {
+            owner_user: {
+              select: {
+                id: true,
+                username: true
+              }
+            },
+            owner_org: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            prompts: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                created_at: true,
+                updated_at: true,
+                versions: {
+                  orderBy: {
+                    version_number: 'desc'
+                  },
+                  take: 1,
+                  select: {
+                    id: true,
+                    version_number: true,
+                    created_at: true
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                stars: true
+              }
+            }
+          }
+        }
+      },
+      skip: offset,
+      take: limit,
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
+    
+    // Count total starred repositories
+    const count = await prisma.star.count({
+      where: { user_id: user.id }
+    });
+    
+    // Extract repositories from stars with consistent format
+    const repositories = stars.map(star => {
+      const repo = star.repository;
+      return {
+        id: repo.id,
+        name: repo.name,
+        description: repo.description,
+        is_public: repo.is_public,
+        created_at: repo.created_at,
+        updated_at: repo.updated_at,
+        owner_user: repo.owner_user,
+        owner_org: repo.owner_org,
+        primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null,
+        metrics: {
+          stars: repo._count.stars
+        }
+      };
+    });
+    
+    res.status(200).json({
+      repositories,
+      user: {
+        id: user.id,
+        username: user.username
+      },
+      pagination: {
+        total: count,
+        page,
+        limit,
+        pages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error: unknown) {
+    logger.error('Error fetching starred repositories:', error);
+    
+    res.status(500).json({
+      message: 'Error fetching starred repositories',
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
+    });
+  }
+};
+
+// Get repositories starred by the current authenticated user
+export const getMyStarredRepositories = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user.id; // Already authenticated via middleware
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+    
+    // Get repositories that the user has starred
+    const stars = await prisma.star.findMany({
+      where: { user_id: userId },
+      include: {
+        repository: {
+          include: {
+            owner_user: {
+              select: {
+                id: true,
+                username: true
+              }
+            },
+            owner_org: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            prompts: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                created_at: true,
+                updated_at: true,
+                versions: {
+                  orderBy: {
+                    version_number: 'desc'
+                  },
+                  take: 1,
+                  select: {
+                    id: true,
+                    version_number: true,
+                    created_at: true
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                stars: true
+              }
+            }
+          }
+        }
+      },
+      skip: offset,
+      take: limit,
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
+    
+    // Count total starred repositories
+    const count = await prisma.star.count({
+      where: { user_id: userId }
+    });
+    
+    // Extract repositories from stars with consistent format
+    const repositories = stars.map(star => {
+      const repo = star.repository;
+      return {
+        id: repo.id,
+        name: repo.name,
+        description: repo.description,
+        is_public: repo.is_public,
+        created_at: repo.created_at,
+        updated_at: repo.updated_at,
+        owner_user: repo.owner_user,
+        owner_org: repo.owner_org,
+        primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null,
+        metrics: {
+          stars: repo._count.stars
+        }
+      };
+    });
+    
+    // Get user details
+    const user = await prisma.account.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true }
+    });
+    
+    res.status(200).json({
+      repositories,
+      user,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        pages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error: unknown) {
+    logger.error('Error fetching starred repositories:', error);
+    
+    res.status(500).json({
+      message: 'Error fetching starred repositories',
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
+    });
+  }
+};
+
+// Star a repository
+export const starRepository = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Check if repository exists
+    const repository = await prisma.repository.findUnique({
+      where: { id }
+    });
+    
+    if (!repository) {
+      res.status(404).json({ message: 'Repository not found' });
+      return;
+    }
+    
+    // Check if already starred
+    const existingStar = await prisma.star.findFirst({
+      where: {
+        repo_id: id,
+        user_id: userId
+      }
+    });
+    
+    if (existingStar) {
+      res.status(200).json({ 
+        message: 'Repository already starred',
+        alreadyStarred: true 
+      });
+      return;
+    }
+    
+    // Create star record
+    await prisma.star.create({
+      data: {
+        repo_id: id,
+        user_id: userId
+      }
+    });
+    
+    // Get updated star count
+    const starCount = await prisma.star.count({
+      where: { repo_id: id }
+    });
+    
+    res.status(200).json({
+      message: 'Repository starred successfully',
+      stars: starCount
+    });
+  } catch (error: unknown) {
+    logger.error('Error starring repository:', error);
+    res.status(500).json({
+      message: 'Error starring repository',
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+    });
+  }
+};
+
+// Unstar a repository
+export const unstarRepository = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Check if repository exists
+    const repository = await prisma.repository.findUnique({
+      where: { id }
+    });
+    
+    if (!repository) {
+      res.status(404).json({ message: 'Repository not found' });
+      return;
+    }
+    
+    // Check if starred
+    const existingStar = await prisma.star.findFirst({
+      where: {
+        repo_id: id,
+        user_id: userId
+      }
+    });
+    
+    if (!existingStar) {
+      res.status(200).json({ 
+        message: 'Repository not starred',
+        notStarred: true 
+      });
+      return;
+    }
+    
+    // Delete star record
+    await prisma.star.delete({
+      where: {
+        id: existingStar.id
+      }
+    });
+    
+    // Get updated star count
+    const starCount = await prisma.star.count({
+      where: { repo_id: id }
+    });
+    
+    res.status(200).json({
+      message: 'Repository unstarred successfully',
+      stars: starCount
+    });
+  } catch (error: unknown) {
+    logger.error('Error unstarring repository:', error);
+    res.status(500).json({
+      message: 'Error unstarring repository',
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+    });
+  }
+};
+
+// Get current user's repositories
+export const getMyRepositories = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user.id; // Already authenticated via middleware
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+    
+    // Build where clause for user-owned repositories only
+    const where = { 
+      owner_user_id: userId,
+      owner_org_id: null // Ensure we're only getting user-owned repositories
+    };
+    
+    // Count total repositories for this user
+    const count = await prisma.repository.count({ where });
+    
+    // Get repositories where the user is the owner
+    const repositories = await prisma.repository.findMany({
+      where,
+      include: {
+        owner_user: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
+        prompts: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            created_at: true,
+            updated_at: true,
+            versions: {
+              orderBy: {
+                version_number: 'desc'
+              },
+              take: 1,
+              select: {
+                id: true,
+                version_number: true,
+                content_snapshot: true,
+                created_at: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            stars: true
+          }
+        }
+      },
+      take: limit,
+      skip: offset,
+      orderBy: {
+        updated_at: 'desc'
+      }
+    });
+    
+    // Transform the repositories to include primaryPrompt and stars count
+    const transformedRepositories = repositories.map(repo => ({
+      id: repo.id,
+      name: repo.name,
+      description: repo.description,
+      is_public: repo.is_public,
+      created_at: repo.created_at,
+      updated_at: repo.updated_at,
+      owner_user: repo.owner_user,
+      owner_type: 'user', // Explicitly mark as user-owned
+      primaryPrompt: repo.prompts && repo.prompts.length > 0 ? repo.prompts[0] : null,
+      stars_count: repo._count.stars
+    }));
+    
+    // Get user details
+    const user = await prisma.account.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true }
+    });
+    
+    res.status(200).json({
+      repositories: transformedRepositories,
+      user,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        pages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error: unknown) {
+    logger.error('Error fetching user repositories:', error);
+    
+    res.status(500).json({
+      message: 'Error fetching user repositories',
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
+    });
+  }
+};
+
+// Create a repository for the current user
+export const createUserRepository = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, description, isPublic } = req.body;
+    const userId = req.user.id;
+    
+    // Use transaction to create repository and default prompt
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the repository - specifically for the user (not organization)
+      const repository = await tx.repository.create({
+        data: {
+          name,
+          description,
+          is_public: isPublic !== undefined ? isPublic : true,
+          owner_user_id: userId,
+          owner_org_id: null // Explicitly set to null to ensure it's user-owned
+        }
+      });
+      
+      // Create a default prompt if requested
+      let prompt = null;
+      let promptVersion = null;
+      
+      if (req.body.default_prompt_title) {
+        prompt = await tx.prompt.create({
+          data: {
+            repository_id: repository.id,
+            title: req.body.default_prompt_title,
+            description: 'Default repository prompt'
+          }
+        });
+        
+        promptVersion = await tx.promptVersion.create({
+          data: {
+            prompt_id: prompt.id,
+            content_snapshot: req.body.default_prompt_content || '',
+            commit_message: 'Initial version',
+            author_id: userId,
+            version_number: 1
+          }
+        });
+      }
+      
+      return { repository, prompt, promptVersion };
+    });
+    
+    res.status(201).json({
+      message: 'User repository created successfully',
+      repository: {
+        ...result.repository,
+        owner_type: 'user' // Explicitly mark as user-owned
+      },
+      default_prompt: result.prompt ? {
+        id: result.prompt.id,
+        title: result.prompt.title,
+        version: {
+          id: result.promptVersion?.id,
+          version_number: result.promptVersion?.version_number
+        }
+      } : null
+    });
+  } catch (error: any) {
+    logger.error('Error creating user repository:', error);
+    res.status(500).json({
+      message: 'Error creating user repository',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 export default {
   createRepository,
   getRepositoryById,
@@ -768,5 +1420,11 @@ export default {
   listRepositories,
   getUserRepositories,
   getTrendingRepositories,
-  getRecentRepositories
+  getRecentRepositories,
+  getUserStarredRepositories,
+  getMyStarredRepositories,
+  starRepository,
+  unstarRepository,
+  getMyRepositories,
+  createUserRepository
 }; 

@@ -12,6 +12,21 @@ export interface User {
     id: string;
     mime_type: string;
   };
+  picture_url?: string;
+}
+
+export interface UserProfile {
+  email?: string;
+  full_name?: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  company?: string;
+  preferences?: {
+    email_notifications?: boolean;
+    theme?: 'light' | 'dark' | 'system';
+    language?: string;
+  };
 }
 
 export interface Account {
@@ -30,20 +45,27 @@ export interface Account {
 export interface Organization {
   id: string;
   name: string;
-  slug: string;
+  display_name: string;
   description?: string;
-  avatarUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  logo_image_id?: string;
+  logo_url?: string;
+  created_at: string;
+  updated_at: string;
+  member_count?: number;
+  repository_count?: number;
+  total_stars?: number;
+  role?: 'OWNER' | 'ADMIN' | 'MEMBER';
   members?: OrganizationMember[];
 }
 
 export interface OrganizationMember {
-  userId: string;
-  organizationId: string;
+  id: string;
+  user_id: string;
+  organization_id: string;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
   user?: User;
   organization?: Organization;
+  joined_at: string;
 }
 
 // Repository interfaces

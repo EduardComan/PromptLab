@@ -421,6 +421,74 @@ export const getPromptRun = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// Create a new prompt
+export const createPrompt = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { repository_id, title, description, content, metadata_json } = req.body;
+    const userId = req.user.id;
+    
+    // Use Prisma transaction to create prompt and initial version
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Check if repository exists
+      const repository = await tx.repository.findUnique({
+        where: { id: repository_id }
+      });
+      
+      if (!repository) {
+        throw new Error('Repository not found');
+      }
+      
+      // Create the prompt
+      const prompt = await tx.prompt.create({
+        data: {
+          repository_id,
+          title,
+          description: description || '',
+          metadata_json: metadata_json || {}
+        }
+      });
+      
+      // Create initial version
+      const version = await tx.promptVersion.create({
+        data: {
+          prompt_id: prompt.id,
+          content_snapshot: content || '',
+          commit_message: 'Initial version',
+          author_id: userId,
+          version_number: 1
+        }
+      });
+      
+      return { prompt, version };
+    });
+    
+    res.status(201).json({
+      message: 'Prompt created successfully',
+      prompt: {
+        id: result.prompt.id,
+        title: result.prompt.title,
+        description: result.prompt.description,
+        repository_id: result.prompt.repository_id,
+        created_at: result.prompt.created_at
+      },
+      version: {
+        id: result.version.id,
+        version_number: result.version.version_number
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error creating prompt:', error);
+    if (error.message === 'Repository not found') {
+      res.status(404).json({ message: error.message });
+    } else {
+      res.status(500).json({
+        message: 'Error creating prompt',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+};
+
 export default {
   getPromptById,
   updatePrompt,
@@ -428,5 +496,6 @@ export default {
   getPromptVersion,
   executePrompt,
   getPromptRuns,
-  getPromptRun
+  getPromptRun,
+  createPrompt
 }; 

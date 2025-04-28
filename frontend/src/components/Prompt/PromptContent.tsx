@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography, Paper, Chip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import { vs2015 as darkTheme } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { vs2015 } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 interface PromptContentProps {
   content: string;
@@ -96,7 +96,7 @@ const PromptContent: React.FC<PromptContentProps> = ({ content, metadata }) => {
             Configuration
           </Typography>
           
-          <SyntaxHighlighter language="json" style={darkTheme}>
+          <SyntaxHighlighter language="json" style={vs2015}>
             {JSON.stringify(metadata, null, 2)}
           </SyntaxHighlighter>
         </Box>

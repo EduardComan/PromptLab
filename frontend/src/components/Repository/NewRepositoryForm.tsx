@@ -28,9 +28,14 @@ interface Organization {
 interface NewRepositoryFormProps {
   editMode?: boolean;
   repositoryId?: string;
+  initialOrgId?: string;
 }
 
-const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({ editMode = false, repositoryId }) => {
+const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({ 
+  editMode = false, 
+  repositoryId,
+  initialOrgId
+}) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -38,8 +43,8 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({ editMode = false,
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [ownerType, setOwnerType] = useState('user');
-  const [organizationId, setOrganizationId] = useState('');
+  const [ownerType, setOwnerType] = useState(initialOrgId ? 'organization' : 'user');
+  const [organizationId, setOrganizationId] = useState(initialOrgId || '');
   
   const [nameError, setNameError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

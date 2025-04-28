@@ -10,24 +10,36 @@ const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d';
 // Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password, full_name, bio } = req.body;
 
     // Validate required fields
-    if (!username || !password) {
+    if (!username || !email || !password) {
       res.status(400).json({
-        message: 'Username and password are required'
+        message: 'Username, email, and password are required'
       });
       return;
     }
 
     // Check if username already exists
-    const existingUser = await prisma.account.findFirst({
+    const existingUsername = await prisma.account.findFirst({
       where: { username }
     });
 
-    if (existingUser) {
+    if (existingUsername) {
       res.status(400).json({
         message: 'Username is already taken'
+      });
+      return;
+    }
+
+    // Check if email already exists
+    const existingEmail = await prisma.account.findFirst({
+      where: { email }
+    });
+
+    if (existingEmail) {
+      res.status(400).json({
+        message: 'Email is already in use'
       });
       return;
     }
@@ -40,10 +52,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const newUser = await prisma.account.create({
       data: {
         username,
-        email: `${username}@example.com`, // Placeholder email since schema requires it
+        email,
         password: hashedPassword,
-        full_name: null,
-        bio: null,
+        full_name: full_name || null,
+        bio: bio || null,
       }
     });
 
@@ -169,6 +181,7 @@ export const getUserByUsername = async (req: Request, res: Response): Promise<vo
         id: true,
         username: true,
         bio: true,
+        full_name: true,
         profile_image_id: true,
         created_at: true,
         profile_image: {
@@ -185,7 +198,57 @@ export const getUserByUsername = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    res.status(200).json({ user });
+    // Get repositories where the user is the owner
+    const repositories = await prisma.repository.findMany({
+      where: { 
+        owner_user_id: user.id,
+        // Only show public repositories unless the requesting user is the owner
+        ...(req.user?.id !== user.id && { is_public: true })
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        is_public: true,
+        created_at: true,
+        updated_at: true,
+        _count: {
+          select: {
+            stars: true
+          }
+        }
+      },
+      take: 10,
+      orderBy: {
+        updated_at: 'desc'
+      }
+    });
+
+    // Count total stars received
+    const starsCount = await prisma.star.count({
+      where: { 
+        repository: {
+          owner_user_id: user.id
+        }
+      }
+    });
+
+    const formattedUser = {
+      id: user.id,
+      username: user.username,
+      bio: user.bio,
+      full_name: user.full_name,
+      profile_image_id: user.profile_image_id,
+      created_at: user.created_at,
+      profile_image: user.profile_image,
+      stars_count: starsCount,
+      repositories: repositories.map(repo => ({
+        ...repo,
+        stars_count: repo._count.stars
+      }))
+    };
+
+    res.status(200).json({ user: formattedUser });
   } catch (error: unknown) {
     logger.error('Error fetching user by username:', error);
     res.status(500).json({
@@ -403,78 +466,6 @@ export const listUsers = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Get user profile with repositories
-export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { username } = req.params;
-    
-    // Find the user by username
-    const user = await prisma.account.findFirst({
-      where: { username: username as string },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        full_name: true,
-        bio: true,
-        profile_image_id: true,
-        created_at: true,
-        profile_image: {
-          select: {
-            id: true,
-            mime_type: true
-          }
-        }
-      }
-    });
-    
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-    
-    // Get repositories where the user is the owner
-    const repositories = await prisma.repository.findMany({
-      where: { owner_user_id: user.id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        is_public: true,
-        created_at: true,
-        updated_at: true
-      },
-      take: 10,
-      orderBy: {
-        updated_at: 'desc'
-      }
-    });
-    
-    // Format the response - using our own structure to avoid type issues
-    const userProfile = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      fullName: user.full_name,
-      bio: user.bio,
-      profileImageId: user.profile_image_id,
-      createdAt: user.created_at,
-      // Handle the profile image from the included data
-      profileImage: user.profile_image,
-      repositories,
-    };
-    
-    res.status(200).json({ user: userProfile });
-  } catch (error: unknown) {
-    logger.error('Error fetching user profile:', error);
-    
-    res.status(500).json({
-      message: 'Error fetching user profile',
-      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
-    });
-  }
-};
-
 export default {
   register,
   login,
@@ -483,6 +474,5 @@ export default {
   updateProfile,
   changePassword,
   uploadProfileImage,
-  listUsers,
-  getUserProfile,
+  listUsers
 }; 

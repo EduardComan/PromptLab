@@ -1,13 +1,17 @@
 import axios from 'axios';
 
+// Create API instance with defaults
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  // Add a timeout to prevent infinite loading states
-  timeout: 15000,
+  // Add a reasonable timeout to prevent infinite loading states
+  timeout: 30000,
 });
+
+// Event to notify authentication status changes
+export const authEvent = new EventTarget();
 
 // Add a request interceptor to include auth token
 api.interceptors.request.use(
@@ -28,18 +32,40 @@ api.interceptors.response.use(
   },
   (error) => {
     // Handle authentication errors
-    if (error.response && error.response.status === 401) {
-      // Clear token if it's invalid or expired
-      if (error.config.url !== '/accounts/login') {
-        localStorage.removeItem('token');
-        // You could redirect to login page here or use an event system
-        // window.location.href = '/login';
+    if (error.response) {
+      const { status } = error.response;
+      
+      if (status === 401) {
+        // Clear token if it's invalid or expired (but not for login requests)
+        if (!error.config.url?.includes('/accounts/login')) {
+          localStorage.removeItem('token');
+          // Dispatch event to notify auth context
+          authEvent.dispatchEvent(new Event('logout'));
+        }
       }
+
+      // Add custom error message based on status code
+      if (status === 403) {
+        error.message = 'You do not have permission to perform this action';
+      } else if (status === 404) {
+        error.message = 'The requested resource was not found';
+      } else if (status === 429) {
+        error.message = 'Too many requests. Please try again later';
+      } else if (status >= 500) {
+        error.message = 'An internal server error occurred. Please try again later';
+      }
+    } else if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timed out. Please check your connection';
     }
     
     // Log errors in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('API Error:', error.response || error.message);
+      console.error('API Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
     }
     
     return Promise.reject(error);

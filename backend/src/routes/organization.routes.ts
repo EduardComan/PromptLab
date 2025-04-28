@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { body, query } from 'express-validator';
+import { body, query, param } from 'express-validator';
 import organizationController from '../controllers/organization.controller';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/authenticate';
 import multer from 'multer';
+import { authorizeOrganization } from '../middleware/authorize';
+import repositoryController from '../controllers/repository.controller';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -12,34 +14,25 @@ const upload = multer({ storage: multer.memoryStorage() });
  * @swagger
  * /api/organizations:
  *   get:
- *     summary: Get organizations by search query
+ *     summary: List all organizations
  *     tags: [Organizations]
  *     parameters:
- *       - in: query
- *         name: query
- *         schema:
- *           type: string
- *         description: Search query
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of results to return
+ *       - $ref: '#/components/parameters/pageParam'
+ *       - $ref: '#/components/parameters/limitParam'
  *     responses:
  *       200:
  *         description: List of organizations
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.get(
   '/',
   [
-    query('query').optional().isString().withMessage('Query must be a string'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
     query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
     validateRequest,
   ],
-  organizationController.searchOrganizations
+  organizationController.getPopularOrganizations
 );
 
 /**
@@ -62,25 +55,31 @@ router.get(
  *             properties:
  *               name:
  *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 50
  *               display_name:
  *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 100
  *               description:
  *                 type: string
  *     responses:
  *       201:
- *         description: Organization created
+ *         description: Organization created successfully
  *       400:
- *         description: Invalid input
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.post(
   '/',
   authenticate,
   [
-    body('name').isString().isLength({ min: 3, max: 30 }).withMessage('Name must be between 3 and 30 characters'),
-    body('display_name').isString().isLength({ min: 3, max: 50 }).withMessage('Display name must be between 3 and 50 characters'),
-    body('description').optional().isString().withMessage('Description must be a string'),
+    body('name').trim().isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters'),
+    body('display_name').trim().isLength({ min: 2, max: 100 }).withMessage('Display name must be between 2 and 100 characters'),
+    body('description').optional().isString(),
     validateRequest,
   ],
   organizationController.createOrganization
@@ -134,62 +133,37 @@ router.get(
 
 /**
  * @swagger
- * /api/organizations/{id}:
- *   get:
- *     summary: Get organization by ID
- *     tags: [Organizations]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Organization details
- *       404:
- *         description: Organization not found
- *       500:
- *         description: Server error
- */
-router.get('/:id', organizationController.getOrganizationById);
-
-/**
- * @swagger
- * /api/organizations/name/{name}:
+ * /api/organizations/{name}:
  *   get:
  *     summary: Get organization by name
  *     tags: [Organizations]
  *     parameters:
- *       - in: path
- *         name: name
- *         required: true
- *         schema:
- *           type: string
+ *       - $ref: '#/components/parameters/orgNameParam'
  *     responses:
  *       200:
  *         description: Organization details
  *       404:
- *         description: Organization not found
+ *         $ref: '#/components/responses/NotFoundError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
-router.get('/name/:name', organizationController.getOrganizationByName);
+router.get(
+  '/:name',
+  param('name').isString().withMessage('Invalid organization name'),
+  validateRequest,
+  organizationController.getOrganizationByName
+);
 
 /**
  * @swagger
- * /api/organizations/{id}:
+ * /api/organizations/{name}:
  *   put:
  *     summary: Update organization
  *     tags: [Organizations]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
+ *       - $ref: '#/components/parameters/orgNameParam'
  *     requestBody:
  *       required: true
  *       content:
@@ -199,27 +173,214 @@ router.get('/name/:name', organizationController.getOrganizationByName);
  *             properties:
  *               display_name:
  *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 100
  *               description:
  *                 type: string
  *     responses:
  *       200:
- *         description: Organization updated
+ *         description: Organization updated successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       403:
- *         description: Unauthorized
+ *         description: Forbidden - user does not have permission
  *       404:
- *         description: Organization not found
+ *         $ref: '#/components/responses/NotFoundError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.put(
-  '/:id',
+  '/:name',
   authenticate,
   [
-    body('display_name').optional().isString().isLength({ min: 3, max: 50 }).withMessage('Display name must be between 3 and 50 characters'),
-    body('description').optional().isString().withMessage('Description must be a string'),
+    param('name').isString().withMessage('Invalid organization name'),
+    body('display_name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Display name must be between 2 and 100 characters'),
+    body('description').optional().isString(),
     validateRequest,
   ],
+  authorizeOrganization,
   organizationController.updateOrganization
+);
+
+/**
+ * @swagger
+ * /api/organizations/{name}/repositories:
+ *   get:
+ *     summary: Get repositories for a specific organization
+ *     tags: [OrganizationRepositories]
+ *     parameters:
+ *       - $ref: '#/components/parameters/orgNameParam'
+ *       - $ref: '#/components/parameters/pageParam'
+ *       - $ref: '#/components/parameters/limitParam'
+${orgRepositoryListSchema}
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get('/:name/repositories', organizationController.getOrganizationRepositories);
+
+/**
+ * @swagger
+ * /api/organizations/{name}/repositories:
+ *   post:
+ *     summary: Create a repository in an organization
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/orgNameParam'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 100
+ *               description:
+ *                 type: string
+ *               isPublic:
+ *                 type: boolean
+ *                 default: true
+ *     responses:
+ *       201:
+ *         description: Repository created successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Forbidden - user is not a member of this organization
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+  '/:name/repositories',
+  authenticate,
+  [
+    param('name').isString().withMessage('Invalid organization name'),
+    body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Repository name must be between 2 and 100 characters'),
+    body('description').optional().isString(),
+    body('isPublic').optional().isBoolean(),
+    validateRequest,
+  ],
+  repositoryController.createRepository
+);
+
+/**
+ * @swagger
+ * /api/organizations/{name}/members:
+ *   get:
+ *     summary: List organization members
+ *     tags: [Organizations]
+ *     parameters:
+ *       - $ref: '#/components/parameters/orgNameParam'
+ *       - $ref: '#/components/parameters/pageParam'
+ *       - $ref: '#/components/parameters/limitParam'
+ *     responses:
+ *       200:
+ *         description: List of organization members
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get('/:name/members', organizationController.getOrganizationMembers);
+
+/**
+ * @swagger
+ * /api/organizations/{name}/members/{username}:
+ *   post:
+ *     summary: Add member to organization
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/orgNameParam'
+ *       - $ref: '#/components/parameters/usernameParam'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [member, admin]
+ *                 default: member
+ *     responses:
+ *       201:
+ *         description: Member added successfully
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Forbidden - user does not have permission
+ *       404:
+ *         description: Organization or user not found
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+  '/:name/members/:username',
+  authenticate,
+  [
+    param('name').isString().withMessage('Invalid organization name'),
+    param('username').isString().withMessage('Invalid username'),
+    body('role').isIn(['member', 'admin']).withMessage('Role must be either member or admin'),
+    validateRequest,
+  ],
+  authorizeOrganization,
+  organizationController.inviteUserToOrganization
+);
+
+/**
+ * @swagger
+ * /api/organizations/{name}/members/{username}:
+ *   delete:
+ *     summary: Remove member from organization
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/orgNameParam'
+ *       - $ref: '#/components/parameters/usernameParam'
+ *     responses:
+ *       200:
+ *         description: Member removed successfully
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         description: Forbidden - user does not have permission
+ *       404:
+ *         description: Organization, user or membership not found
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.delete(
+  '/:name/members/:username',
+  authenticate,
+  [
+    param('name').isString().withMessage('Invalid organization name'),
+    param('username').isString().withMessage('Invalid username'),
+    validateRequest,
+  ],
+  authorizeOrganization,
+  organizationController.removeMember
 );
 
 /**
@@ -287,28 +448,6 @@ router.post(
   upload.single('image'),
   organizationController.uploadOrganizationLogo
 );
-
-/**
- * @swagger
- * /api/organizations/{id}/members:
- *   get:
- *     summary: Get organization members
- *     tags: [Organizations]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of organization members
- *       404:
- *         description: Organization not found
- *       500:
- *         description: Server error
- */
-router.get('/:id/members', organizationController.getOrganizationMembers);
 
 /**
  * @swagger
@@ -419,79 +558,5 @@ router.put(
  *         description: Server error
  */
 router.delete('/:id/members/:userId', authenticate, organizationController.removeMember);
-
-/**
- * @swagger
- * /api/organizations/{id}/repositories:
- *   get:
- *     summary: Get organization repositories
- *     tags: [Organizations]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of organization repositories
- *       404:
- *         description: Organization not found
- *       500:
- *         description: Server error
- */
-router.get('/:id/repositories', organizationController.getOrganizationRepositories);
-
-/**
- * @swagger
- * /api/organizations/{id}/invite:
- *   post:
- *     summary: Invite user to organization
- *     tags: [Organizations]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - username
- *             properties:
- *               username:
- *                 type: string
- *               role:
- *                 type: string
- *                 enum: [ADMIN, MEMBER]
- *                 default: MEMBER
- *     responses:
- *       200:
- *         description: User invited
- *       400:
- *         description: User already a member or invalid role
- *       403:
- *         description: Unauthorized
- *       404:
- *         description: User or organization not found
- *       500:
- *         description: Server error
- */
-router.post(
-  '/:id/invite',
-  authenticate,
-  [
-    body('username').isString().withMessage('Username must be a string'),
-    body('role').optional().isIn(['ADMIN', 'MEMBER']).withMessage('Role must be either ADMIN or MEMBER'),
-    validateRequest,
-  ],
-  organizationController.inviteUserToOrganization
-);
 
 export default router; 

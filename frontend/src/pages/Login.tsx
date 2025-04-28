@@ -329,7 +329,7 @@ const Login: React.FC = () => {
       // Navigate to dashboard after successful login
       setTimeout(() => {
         navigate('/');
-      }, 1000);
+      }, 100);
     } catch (err: any) {
       console.error('Login error:', err);
       
