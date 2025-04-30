@@ -256,63 +256,6 @@ const components = {
     }
   },
   parameters: {
-    Pagination: {
-      in: 'query',
-      name: 'page',
-      schema: {
-        type: 'integer',
-        default: 1
-      },
-      description: 'Page number'
-    },
-    Limit: {
-      in: 'query',
-      name: 'limit',
-      schema: {
-        type: 'integer',
-        default: 10
-      },
-      description: 'Number of items per page'
-    },
-    limitParam: {
-      in: 'query',
-      name: 'limit',
-      schema: {
-        type: 'integer',
-        minimum: 1,
-        maximum: 50,
-        default: 10
-      },
-      description: 'Number of items per page'
-    },
-    pageParam: {
-      in: 'query',
-      name: 'page',
-      schema: {
-        type: 'integer',
-        minimum: 1,
-        default: 1
-      },
-      description: 'Page number'
-    },
-    usernameParam: {
-      in: 'path',
-      name: 'username',
-      required: true,
-      schema: {
-        type: 'string'
-      },
-      description: 'Username'
-    },
-    orgNameParam: {
-      in: 'path',
-      name: 'orgName',
-      required: true,
-      schema: {
-        type: 'string'
-      },
-      description: 'Organization name'
-    },
     idParam: {
       in: 'path',
       name: 'id',
@@ -323,6 +266,36 @@ const components = {
       },
       description: 'Resource ID'
     },
+    pageParam: {
+      in: 'query',
+      name: 'page',
+      schema: {
+        type: 'integer',
+        default: 1,
+        minimum: 1
+      },
+      description: 'Page number'
+    },
+    limitParam: {
+      in: 'query',
+      name: 'limit',
+      schema: {
+        type: 'integer',
+        default: 10,
+        minimum: 1,
+        maximum: 100
+      },
+      description: 'Items per page'
+    },
+    usernameParam: {
+      in: 'path',
+      name: 'username',
+      required: true,
+      schema: {
+        type: 'string'
+      },
+      description: 'Username'
+    },
     ownerTypeParam: {
       in: 'query',
       name: 'ownerType',
@@ -330,16 +303,16 @@ const components = {
         type: 'string',
         enum: ['user', 'organization']
       },
-      description: 'Filter repositories by owner type'
-    },
+      description: 'Type of owner (user or organization)'
+    }
   },
   securitySchemes: {
     bearerAuth: {
       type: 'http',
       scheme: 'bearer',
-      bearerFormat: 'JWT',
-    },
-  },
+      bearerFormat: 'JWT'
+    }
+  }
 };
 
 const options: swaggerJsdoc.Options = {
@@ -348,26 +321,24 @@ const options: swaggerJsdoc.Options = {
     info: {
       title: 'PromptLab API',
       version: '1.0.0',
-      description: 'API documentation for PromptLab application',
+      description: 'API Documentation for PromptLab'
     },
     servers: [
       {
-        url: process.env.API_BASE_URL || 'http://localhost:3001',
-        description: 'Development server',
-      },
+        url: 'http://localhost:3001',
+        description: 'Development server'
+      }
     ],
     components,
     tags: [
-      { name: 'Accounts', description: 'User accounts and authentication operations' },
-      { name: 'Repositories', description: 'Repository management' },
-      { name: 'UserRepositories', description: 'User-owned repository operations' },
-      { name: 'OrganizationRepositories', description: 'Organization-owned repository operations' },
-      { name: 'Prompts', description: 'Prompt management' },
-      { name: 'Organizations', description: 'Organization management' },
-      { name: 'Analytics', description: 'Analytics and reporting' }
+      { name: 'Accounts', description: 'Account management endpoints' },
+      { name: 'Repositories', description: 'Repository management endpoints' },
+      { name: 'Prompts', description: 'Prompt management endpoints' },
+      { name: 'Organizations', description: 'Organization management endpoints' },
+      { name: 'Analytics', description: 'Analytics endpoints' }
     ]
   },
-  apis: ['./src/routes/*.ts'], // Path to API routes and separate docs
+  apis: ['./src/routes/*.ts'], // Path to the API routes folder
 };
 
 export const swaggerSpec = swaggerJsdoc(options); 

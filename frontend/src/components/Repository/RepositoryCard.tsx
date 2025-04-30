@@ -131,29 +131,27 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
           </Typography>
         </Box>
         
-        {repository.description && (
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ 
-              mb: 2, 
-              mt: 1, 
-              height: '40px', 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis', 
-              display: '-webkit-box', 
-              WebkitLineClamp: 2, 
-              WebkitBoxOrient: 'vertical' 
-            }}
-          >
-            {repository.description}
-          </Typography>
-        )}
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          sx={{ 
+            mb: 2, 
+            mt: 1, 
+            height: '40px', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            display: '-webkit-box', 
+            WebkitLineClamp: 2, 
+            WebkitBoxOrient: 'vertical' 
+          }}
+        >
+          {repository.description || "No description provided"}
+        </Typography>
       </CardContent>
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, pt: 0 }}>
         <Typography variant="caption" color="text.secondary">
-          Updated {repoUpdateTime}
+          Last updated {repoUpdateTime}
         </Typography>
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -165,6 +163,7 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
                 color: repository.isStarred ? 'primary.main' : 'text.secondary',
                 '&:hover': { color: 'primary.main' }
               }}
+              aria-label={repository.isStarred ? "Unstar repository" : "Star repository"}
             >
               {repository.isStarred ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
             </IconButton>

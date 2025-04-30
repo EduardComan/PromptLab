@@ -11,7 +11,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
+import RepositoryService from '../../services/RepositoryService';
 import RepositoryCard from './RepositoryCard';
 
 export interface Repository {
@@ -86,9 +86,9 @@ const RepositoryGrid: React.FC<RepositoryGridProps> = ({
       setLoadingStars(prev => ({ ...prev, [repoId]: true }));
       
       if (isStarred) {
-        await api.delete(`/repositories/${repoId}/star`);
+        await RepositoryService.unstarRepository(repoId);
       } else {
-        await api.post(`/repositories/${repoId}/star`);
+        await RepositoryService.starRepository(repoId);
       }
       
       // Call onStar callback for parent components to refresh data

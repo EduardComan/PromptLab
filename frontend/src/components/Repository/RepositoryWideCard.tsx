@@ -1,0 +1,285 @@
+import React, { useCallback, useState } from 'react';
+import { 
+  Card, 
+  CardContent, 
+  Typography, 
+  Box, 
+  Chip, 
+  Avatar, 
+  IconButton,
+  Tooltip,
+  CircularProgress
+} from '@mui/material';
+import { 
+  StarOutline as StarOutlineIcon,
+  Star as StarIcon,
+  Public as PublicIcon,
+  Lock as LockIcon
+} from '@mui/icons-material';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { useAuth } from '../../contexts/AuthContext';
+import { Repository } from './RepositoryGrid';
+
+interface RepositoryWideCardProps {
+  repository: Repository;
+  onStar?: (id: string, isStarred: boolean) => void;
+  profileImage?: string;
+}
+
+const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({ 
+  repository,
+  onStar,
+  profileImage
+}) => {
+  const { user } = useAuth();
+  const [loadingStar, setLoadingStar] = useState(false);
+  
+  const ownerName = repository.owner_user 
+    ? repository.owner_user.username 
+    : repository.owner_org?.name || 'Unknown';
+  
+  const ownerLink = repository.owner_user 
+    ? `/profile/${repository.owner_user.username}` 
+    : repository.owner_org 
+      ? `/organizations/${repository.owner_org.name}` 
+      : '#';
+  
+  const ownerAvatar = profileImage || 
+    (repository.owner_user?.profile_image?.id
+      ? `/api/accounts/profile-image/${repository.owner_user.profile_image.id}`
+      : repository.owner_org?.logo_image?.id
+        ? `/api/images/${repository.owner_org.logo_image.id}`
+        : undefined);
+  
+  // Calculate star count from either direct property or _count
+  const starCount = repository.stars_count || repository._count?.stars || 0;
+  
+  const handleStar = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onStar && !loadingStar) {
+      try {
+        setLoadingStar(true);
+        await onStar(repository.id, !!repository.isStarred);
+      } finally {
+        setLoadingStar(false);
+      }
+    }
+  }, [repository.id, repository.isStarred, onStar, loadingStar]);
+
+  return (
+    <Card sx={{ 
+      borderRadius: 2, 
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)', 
+      border: '1px solid', 
+      borderColor: 'divider',
+      '&:hover': {
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        borderColor: 'primary.light',
+        transition: 'all 0.3s ease'
+      },
+      width: '100%',
+    }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        {/* Title and Description */}
+        <Link 
+          to={`/repositories/${repository.id}`}
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700,
+              mb: 1.5,
+              color: 'text.primary',
+              '&:hover': { color: 'primary.main' },
+              fontSize: { xs: '1.25rem', md: '1.5rem' },
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {repository.name}
+          </Typography>
+        </Link>
+        
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          sx={{ 
+            mb: 2.5,
+            fontSize: '0.95rem',
+            lineHeight: 1.5,
+            display: '-webkit-box',
+            overflow: 'hidden',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: 2,
+          }}
+        >
+          {repository.description || 'No description provided'}
+        </Typography>
+        
+        {/* Tags */}
+        {repository.tags && repository.tags.length > 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: 1, 
+            mb: 2.5,
+            maxWidth: '100%',
+            overflow: 'hidden',
+          }}>
+            {repository.tags.map(tag => (
+              <Chip 
+                key={tag.id} 
+                label={tag.name} 
+                size="small" 
+                variant="outlined"
+                sx={{ 
+                  borderRadius: '16px',
+                  maxWidth: '100%',
+                }}
+              />
+            ))}
+          </Box>
+        )}
+        
+        {/* Footer - metadata */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          rowGap: 2,
+          width: '100%',
+        }}>
+          {/* User Info */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            minWidth: 0,
+            maxWidth: '70%',
+          }}>
+            <Avatar 
+              sx={{ width: 28, height: 28, mr: 1, flexShrink: 0 }}
+              alt={ownerName}
+              src={ownerAvatar}
+            >
+              {ownerName ? ownerName[0].toUpperCase() : 'U'}
+            </Avatar>
+            <Typography 
+              variant="body2" 
+              component="span" 
+              sx={{ 
+                mr: 2,
+                fontWeight: 500,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {ownerName}
+            </Typography>
+            
+            {/* Visibility Badge */}
+            <Chip 
+              icon={repository.is_public ? <PublicIcon fontSize="small" /> : <LockIcon fontSize="small" />}
+              size="small"
+              label={repository.is_public ? "Public" : "Private"}
+              color={repository.is_public ? "success" : "default"}
+              variant="outlined"
+              sx={{ 
+                height: 24,
+                borderRadius: 3,
+                fontSize: '0.75rem',
+                flexShrink: 0,
+              }}
+            />
+          </Box>
+          
+          {/* Right side metadata */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: { xs: 1, sm: 2 },
+            color: 'text.secondary',
+            fontSize: '0.875rem',
+            flexShrink: 0,
+          }}>
+            {/* Star count */}
+            {repository.is_public && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                gap: 0.5
+              }}>
+                {user && (
+                  <Tooltip title={repository.isStarred ? "Unstar repository" : "Star repository"}>
+                    <Box sx={{ display: 'inline-flex', position: 'relative' }}>
+                      <IconButton 
+                        size="small" 
+                        onClick={handleStar}
+                        disabled={loadingStar}
+                        sx={{ 
+                          color: repository.isStarred ? '#f1c40f' : 'text.secondary',
+                          '&:hover': { color: '#f1c40f' },
+                          opacity: loadingStar ? 0.5 : 1
+                        }}
+                        aria-label={repository.isStarred ? "Unstar repository" : "Star repository"}
+                      >
+                        {repository.isStarred ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
+                      </IconButton>
+                      {loadingStar && (
+                        <CircularProgress 
+                          size={16} 
+                          sx={{ 
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            marginTop: '-8px',
+                            marginLeft: '-8px'
+                          }} 
+                        />
+                      )}
+                    </Box>
+                  </Tooltip>
+                )}
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: starCount > 0 ? 600 : 400
+                  }}
+                >
+                  {starCount}
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Creation date */}
+            <Typography 
+              variant="body2"
+              sx={{
+                display: { xs: 'none', sm: 'block' }
+              }}
+            >
+              {format(new Date(repository.created_at), 'MMM d, yyyy')}
+            </Typography>
+            <Typography 
+              variant="body2"
+              sx={{
+                display: { xs: 'block', sm: 'none' }
+              }}
+            >
+              {format(new Date(repository.created_at), 'MM/dd/yy')}
+            </Typography>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+});
+
+RepositoryWideCard.displayName = 'RepositoryWideCard';
+
+export default RepositoryWideCard; 

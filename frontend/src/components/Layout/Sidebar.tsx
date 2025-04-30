@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Drawer,
@@ -11,14 +11,14 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
-  Tooltip
+  Tooltip,
+  Avatar,
+  AvatarGroup
 } from '@mui/material';
 import {
   Home as HomeIcon,
   Explore as ExploreIcon,
   Add as CreateIcon,
-  Star as StarIcon,
-  Settings as SettingsIcon,
   BusinessOutlined as BusinessIcon,
   ChevronLeft as ChevronLeftIcon,
   Menu as MenuIcon
@@ -26,6 +26,7 @@ import {
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { styled } from '@mui/material/styles';
+import api from '../../services/api';
 
 // Styled components
 const DrawerHeader = styled('div')(({ theme }) => ({
@@ -53,6 +54,13 @@ interface MenuItem {
   icon: React.ReactNode;
 }
 
+interface Organization {
+  id: string;
+  name: string;
+  display_name?: string;
+  logo_image_id?: string;
+}
+
 interface SidebarProps {
   open?: boolean;
   onToggle?: () => void;
@@ -64,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [localOpen, setLocalOpen] = React.useState(!isMobile);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   
   // Use either prop-controlled or local state
   const open = propOpen !== undefined ? propOpen : localOpen;
@@ -76,6 +85,23 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
       setLocalOpen(!localOpen);
     }
   };
+
+  // Fetch user's organizations
+  useEffect(() => {
+    if (user) {
+      const fetchOrganizations = async () => {
+        try {
+          const response = await api.get('/organizations/me');
+          setOrganizations(response.data.organizations || []);
+        } catch (err) {
+          console.error('Error fetching organizations:', err);
+          setOrganizations([]);
+        }
+      };
+      
+      fetchOrganizations();
+    }
+  }, [user]);
   
   const drawerWidth = open ? 240 : 64;
   
@@ -90,30 +116,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
       title: 'Discover', 
       path: '/discover', 
       icon: <ExploreIcon /> 
-    },
-    { 
-      title: 'Organizations', 
-      path: '/organizations', 
-      icon: <BusinessIcon /> 
     }
   ];
   
   // Menu items that only appear when user is logged in
   const authenticatedMenuItems: MenuItem[] = [
     { 
-      title: 'My Repositories', 
-      path: '/my-repositories', 
-      icon: <StarIcon /> 
-    },
-    { 
       title: 'Create Repository', 
       path: '/repositories/new', 
       icon: <CreateIcon /> 
     },
     { 
-      title: 'Settings', 
-      path: '/settings', 
-      icon: <SettingsIcon /> 
+      title: 'Organizations', 
+      path: '/organizations', 
+      icon: <BusinessIcon /> 
     }
   ];
 
@@ -236,6 +252,51 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
                 </ListItem>
               ))}
             </List>
+
+            {/* Organization list */}
+            {open && organizations.length > 0 && (
+              <>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ px: 3, my: 2 }}>
+                  My Organizations
+                </Typography>
+                <List>
+                  {organizations.map((org) => (
+                    <ListItem 
+                      button 
+                      key={org.id} 
+                      component={NavLink} 
+                      to={`/organizations/${org.name}`}
+                      sx={{
+                        mb: 0.5,
+                        px: 2,
+                        py: 1,
+                        justifyContent: 'initial',
+                        color: 'text.primary',
+                        borderRadius: '0 20px 20px 0',
+                        '&.active': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          color: 'primary.main',
+                          fontWeight: 'bold',
+                        },
+                        '&:hover': {
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        }
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 40, mr: 3 }}>
+                        <Avatar 
+                          src={org.logo_image_id ? `/api/images/${org.logo_image_id}` : undefined}
+                          sx={{ width: 24, height: 24 }}
+                        >
+                          {org.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText primary={org.display_name || org.name} />
+                    </ListItem>
+                  ))}
+                </List>
+              </>
+            )}
           </>
         )}
       </Box>

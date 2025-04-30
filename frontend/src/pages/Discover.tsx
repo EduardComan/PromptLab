@@ -36,12 +36,19 @@ interface Repository {
   name: string;
   description: string;
   star_count: number;
+  stars_count: number;
   is_starred: boolean;
+  isStarred: boolean;
   created_at: string;
   owner: {
     id: string;
     name: string;
     display_name: string;
+    profile_image_id?: string;
+  };
+  owner_user?: {
+    id: string;
+    username: string;
     profile_image_id?: string;
   };
 }
@@ -54,38 +61,52 @@ const Discover: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('stars');
-  const [contentType, setContentType] = useState('prompts');
+  const [contentType, setContentType] = useState('repositories');
 
-  const fetchPrompts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch repositories based on sort criteria
-      const response = await api.get('/api/repositories', {
-        params: { 
-          limit: 20, 
-          sort: sortBy, 
-          order: 'desc',
-          q: searchQuery || undefined
-        }
-      });
-      
-      setRepositories(response.data.repositories || []);
+      if (contentType === 'repositories') {
+        // Fetch repositories based on sort criteria
+        const response = await api.get('/repositories', {
+          params: { 
+            limit: 20, 
+            sort_by: sortBy, 
+            order: 'desc',
+            q: searchQuery || undefined
+          }
+        });
+        
+        setRepositories(response.data.repositories || []);
+      } else if (contentType === 'organizations') {
+        // Fetch organizations
+        const response = await api.get('/organizations', {
+          params: { 
+            limit: 20, 
+            sort_by: sortBy, 
+            order: 'desc',
+            q: searchQuery || undefined
+          }
+        });
+        
+        setRepositories(response.data.organizations || []);
+      }
     } catch (error) {
-      console.error('Error fetching repositories:', error);
-      setError('Failed to load repositories. Please try again later.');
+      console.error(`Error fetching ${contentType}:`, error);
+      setError(`Failed to load ${contentType}. Please try again later.`);
     } finally {
       setLoading(false);
     }
-  }, [sortBy, searchQuery]);
+  }, [sortBy, searchQuery, contentType]);
 
   useEffect(() => {
-    fetchPrompts();
-  }, [fetchPrompts]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchPrompts();
+    fetchData();
   };
 
   const handleStarRepo = async (repoId: string, isStarred: boolean) => {
@@ -96,22 +117,26 @@ const Discover: React.FC = () => {
     
     try {
       if (isStarred) {
-        await api.delete(`/api/repositories/${repoId}/star`);
+        await api.delete(`/repositories/${repoId}/star`);
       } else {
-        await api.post(`/api/repositories/${repoId}/star`);
+        await api.post(`/repositories/${repoId}/star`);
       }
       
       // Update the repository in the state
       setRepositories(prev => 
-        prev.map(repo => 
-          repo.id === repoId 
-            ? { 
-                ...repo, 
-                is_starred: !isStarred,
-                star_count: isStarred ? repo.star_count - 1 : repo.star_count + 1
-              } 
-            : repo
-        )
+        prev.map(repo => {
+          if (repo.id === repoId) {
+            const starCount = (repo.stars_count !== undefined ? repo.stars_count : repo.star_count || 0);
+            return { 
+              ...repo, 
+              isStarred: !isStarred,
+              is_starred: !isStarred,
+              stars_count: isStarred ? starCount - 1 : starCount + 1,
+              star_count: isStarred ? starCount - 1 : starCount + 1
+            };
+          }
+          return repo;
+        })
       );
     } catch (error) {
       console.error('Error starring repository:', error);
@@ -126,7 +151,7 @@ const Discover: React.FC = () => {
           PromptHub Community
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Explore the community's prompts, repositories, organizations, and more!
+          Explore the community's repositories, organizations, and more!
         </Typography>
       </Paper>
 
@@ -142,7 +167,7 @@ const Discover: React.FC = () => {
           }}
         >
           <TextField
-            placeholder="Search repositories, prompts, or organizations..."
+            placeholder="Search repositories or organizations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             fullWidth
@@ -167,20 +192,20 @@ const Discover: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button 
-              variant={contentType === 'prompts' ? "contained" : "outlined"}
-              onClick={() => setContentType('prompts')}
-            >
-              Prompts
-            </Button>
-            <Button 
               variant={contentType === 'repositories' ? "contained" : "outlined"}
-              onClick={() => setContentType('repositories')}
+              onClick={() => {
+                setContentType('repositories');
+                setSortBy('stars');
+              }}
             >
               Repositories
             </Button>
             <Button 
               variant={contentType === 'organizations' ? "contained" : "outlined"}
-              onClick={() => setContentType('organizations')}
+              onClick={() => {
+                setContentType('organizations');
+                setSortBy('name');
+              }}
             >
               Organizations
             </Button>
@@ -194,9 +219,19 @@ const Discover: React.FC = () => {
               label="Sort By"
               startAdornment={<SortIcon fontSize="small" sx={{ mr: 1 }} />}
             >
-              <MenuItem value="stars">Most stars</MenuItem>
-              <MenuItem value="created_at">Newest</MenuItem>
-              <MenuItem value="name">Alphabetical</MenuItem>
+              {contentType === 'repositories' && (
+                <>
+                  <MenuItem value="stars">Most stars</MenuItem>
+                  <MenuItem value="created_at">Newest</MenuItem>
+                  <MenuItem value="name">Alphabetical</MenuItem>
+                </>
+              )}
+              {contentType === 'organizations' && (
+                <>
+                  <MenuItem value="name">Alphabetical</MenuItem>
+                  <MenuItem value="created_at">Newest</MenuItem>
+                </>
+              )}
             </Select>
           </FormControl>
         </Box>
@@ -205,11 +240,10 @@ const Discover: React.FC = () => {
       {/* Content Section */}
       <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
         <Typography variant="h5" component="h2" fontWeight={600} sx={{ mb: 3 }}>
-          {contentType === 'prompts' ? 'Trending Prompts' : 
-           contentType === 'repositories' ? 'Popular Repositories' : 'Active Organizations'}
+          {contentType === 'repositories' ? 'Popular Repositories' : 'Active Organizations'}
         </Typography>
 
-        {/* Repository/Prompt Cards */}
+        {/* Repository/Organization Cards */}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
@@ -242,69 +276,108 @@ const Discover: React.FC = () => {
                       <CardContent>
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                           <Avatar 
-                            src={repo.owner.profile_image_id ? `/api/images/${repo.owner.profile_image_id}` : undefined}
-                            alt={repo.owner.display_name}
+                            src={
+                              (repo.owner?.profile_image_id ? 
+                                `/api/images/${repo.owner.profile_image_id}` : 
+                                repo.owner_user?.profile_image_id ? 
+                                  `/api/accounts/profile-image/${repo.owner_user.profile_image_id}` : 
+                                  undefined)
+                            }
+                            alt={repo.owner?.display_name || repo.owner_user?.username || ''}
                             sx={{ width: 40, height: 40, mr: 2 }}
                           >
-                            {repo.owner.display_name?.[0]?.toUpperCase() || <PersonIcon />}
+                            {(repo.owner?.display_name?.[0]?.toUpperCase() || 
+                              repo.owner_user?.username?.[0]?.toUpperCase() || 
+                              <PersonIcon />)
+                            }
                           </Avatar>
-                          
-                          <Box sx={{ flex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Typography 
-                                variant="h6" 
-                                component={Link} 
-                                to={`/repositories/${repo.id}`}
-                                sx={{ 
-                                  textDecoration: 'none', 
-                                  color: 'inherit',
-                                  '&:hover': {
-                                    color: 'primary.main'
-                                  }
-                                }}
-                              >
-                                {repo.name}
-                              </Typography>
-                              <IconButton 
-                                size="small" 
-                                color={repo.is_starred ? 'warning' : 'default'}
-                                onClick={() => handleStarRepo(repo.id, repo.is_starred)}
-                              >
-                                {repo.is_starred ? <StarIcon /> : <StarBorderIcon />}
-                              </IconButton>
-                            </Box>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography 
+                              variant="h6" 
+                              component={Link}
+                              to={contentType === 'repositories' ? 
+                                `/repositories/${repo.id}` : 
+                                `/organizations/${repo.owner?.name || repo.name}`
+                              }
+                              sx={{ 
+                                fontWeight: 600, 
+                                color: 'text.primary',
+                                textDecoration: 'none',
+                                '&:hover': { color: 'primary.main' },
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {repo.name}
+                            </Typography>
                             
-                            <Typography variant="body2" color="text.secondary" paragraph>
-                              {repo.description || 'No description provided.'}
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary"
+                              component={Link}
+                              to={repo.owner_user ? 
+                                `/profile/${repo.owner_user.username}` : 
+                                repo.owner ? 
+                                  `/organizations/${repo.owner.name}` : 
+                                  '#'
+                              }
+                              sx={{ 
+                                textDecoration: 'none',
+                                '&:hover': { textDecoration: 'underline' }
+                              }}
+                            >
+                              {repo.owner?.display_name || repo.owner_user?.username || ''}
                             </Typography>
                           </Box>
+                          
+                          {contentType === 'repositories' && user && (
+                            <IconButton 
+                              onClick={() => handleStarRepo(
+                                repo.id, 
+                                repo.isStarred !== undefined ? repo.isStarred : (repo.is_starred || false)
+                              )}
+                              size="small"
+                              color="primary"
+                              aria-label={
+                                (repo.isStarred || repo.is_starred) ? "Unstar repository" : "Star repository"
+                              }
+                            >
+                              {(repo.isStarred || repo.is_starred) ? (
+                                <StarIcon fontSize="small" sx={{ color: '#f1c40f' }} />
+                              ) : (
+                                <StarBorderIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          )}
                         </Box>
                         
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Chip 
-                              size="small" 
-                              label="Prompt Engineering"
-                              sx={{ 
-                                bgcolor: 'rgba(25, 118, 210, 0.08)',
-                                color: 'primary.main'
-                              }}
-                            />
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {repo.owner.display_name}
-                            </Typography>
-                            
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary"
+                          sx={{ 
+                            mb: 2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}
+                        >
+                          {repo.description || 'No description provided'}
+                        </Typography>
+                        
+                        {contentType === 'repositories' && (
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <StarIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.875rem', color: 'text.secondary' }} />
-                              <Typography variant="caption" color="text.secondary">
-                                {repo.star_count || 0}
+                              <StarIcon fontSize="small" sx={{ color: '#f1c40f', mr: 0.5 }} />
+                              <Typography variant="body2">
+                                {repo.stars_count !== undefined ? repo.stars_count : (repo.star_count || 0)}
                               </Typography>
                             </Box>
                           </Box>
-                        </Box>
+                        )}
                       </CardContent>
                     </Card>
                   </Grid>

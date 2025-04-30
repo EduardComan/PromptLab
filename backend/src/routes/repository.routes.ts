@@ -17,9 +17,7 @@ const router = Router();
  *       - $ref: '#/components/parameters/limitParam'
  *     responses:
  *       200:
- *         description: List of recent repositories
- *       500:
- *         $ref: '#/components/responses/ServerError'
+ *         description: List of recent repositories${standardResponses.serverError}
  */
 // Get recent repositories
 router.get(
@@ -41,9 +39,7 @@ router.get(
  *       - $ref: '#/components/parameters/limitParam'
  *     responses:
  *       200:
- *         description: List of trending repositories
- *       500:
- *         $ref: '#/components/responses/ServerError'
+ *         description: List of trending repositories${standardResponses.serverError}
  */
 // Get trending repositories
 router.get(
@@ -137,18 +133,23 @@ router.get(
  *                 type: string
  *                 minLength: 2
  *                 maxLength: 100
+ *                 example: "My Repository"
  *               description:
  *                 type: string
+ *                 example: "This is my repository description"
  *               isPublic:
  *                 type: boolean
  *                 default: true
+ *                 example: true
  *               ownerType:
  *                 type: string
  *                 enum: [user, organization]
+ *                 example: "user"
  *               orgId:
  *                 type: string
  *                 format: uuid
- *                 description: Required if ownerType is organization
+ *                 description: Required only when ownerType is 'organization'
+ *                 example: "123e4567-e89b-12d3-a456-426614174000"
  *     responses:
  *       201:
  *         description: Repository created successfully
@@ -186,7 +187,7 @@ router.post(
  *       - $ref: '#/components/parameters/limitParam'
  *     responses:
  *       200:
- *         description: List of user repositories
+ *         $ref: '#/components/responses/SuccessResponse'
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  *       500:
@@ -304,7 +305,6 @@ router.delete(
   repositoryController.deleteRepository
 );
 
-// Add star/unstar routes
 /**
  * @swagger
  * /api/repositories/{id}/star:

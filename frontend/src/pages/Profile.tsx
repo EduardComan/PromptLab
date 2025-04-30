@@ -18,7 +18,9 @@ import {
   useMediaQuery,
   useTheme,
   Tooltip,
-  Paper
+  Paper,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { 
   Star as StarIcon, 
@@ -28,15 +30,20 @@ import {
   Link as LinkIcon,
   Add as AddIcon,
   Public as PublicIcon,
-  Lock as LockIcon
+  Lock as LockIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import { Organization, User, Repository } from '../interfaces';
+import { Organization, User } from '../interfaces';
 import AuthService from '../services/AuthService';
 import UserService from '../services/UserService';
+import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
+import RepositoryService from '../services/RepositoryService';
+// Import Repository type from RepositoryGrid
+import { Repository } from '../components/Repository/RepositoryGrid';
 
 // Tab Panel Component
 interface TabPanelProps {
@@ -111,12 +118,17 @@ const Profile: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [profile, setProfile] = useState<ExtendedUser | null>(null);
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [starredPrompts, setStarredPrompts] = useState<Prompt[]>([]);
+  const [prompts, setPrompts] = useState<Repository[]>([]);
+  const [starredPrompts, setStarredPrompts] = useState<Repository[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
   
   useEffect(() => {
     const fetchUserData = async () => {
@@ -159,7 +171,23 @@ const Profile: React.FC = () => {
           
           const response = await api.get(repoUrl);
           const repositories = response.data.repositories || [];
-          setPrompts(repositories);
+          
+          // Convert API response to Repository type
+          const formattedRepos: Repository[] = repositories.map((repo: any) => ({
+            id: repo.id,
+            name: repo.name,
+            description: repo.description,
+            is_public: repo.is_public,
+            created_at: repo.created_at,
+            updated_at: repo.updated_at,
+            stars_count: repo.stars_count || 0,
+            owner_user: repo.owner_user,
+            owner_org: repo.owner_org,
+            isStarred: repo.isStarred || false,
+            tags: repo.tags
+          }));
+          
+          setPrompts(formattedRepos);
           userData.promptCount = repositories.length;
         } catch (repoError) {
           console.error('Error fetching repositories:', repoError);
@@ -176,7 +204,23 @@ const Profile: React.FC = () => {
           
           const starredResponse = await api.get(starredUrl);
           const starredRepos = starredResponse.data.repositories || [];
-          setStarredPrompts(starredRepos);
+          
+          // Convert API response to Repository type
+          const formattedStarredRepos: Repository[] = starredRepos.map((repo: any) => ({
+            id: repo.id,
+            name: repo.name,
+            description: repo.description,
+            is_public: repo.is_public,
+            created_at: repo.created_at,
+            updated_at: repo.updated_at,
+            stars_count: repo.stars_count || 0,
+            owner_user: repo.owner_user,
+            owner_org: repo.owner_org,
+            isStarred: true, // These are explicitly starred
+            tags: repo.tags
+          }));
+          
+          setStarredPrompts(formattedStarredRepos);
           userData.starCount = starredRepos.length;
         } catch (starError) {
           console.error('Error fetching starred repositories:', starError);
@@ -217,6 +261,99 @@ const Profile: React.FC = () => {
   
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const handleStarToggle = async (repoId: string, isStarred: boolean) => {
+    try {
+      // Call the appropriate service method
+      if (isStarred) {
+        await RepositoryService.unstarRepository(repoId);
+        setSnackbar({
+          open: true,
+          message: 'Repository removed from your starred repositories',
+          severity: 'success'
+        });
+      } else {
+        await RepositoryService.starRepository(repoId);
+        setSnackbar({
+          open: true,
+          message: 'Repository added to your starred repositories',
+          severity: 'success'
+        });
+      }
+      
+      // Update both repositories lists to reflect the change
+      setPrompts(repos => 
+        repos.map(repo => 
+          repo.id === repoId 
+            ? { 
+                ...repo, 
+                isStarred: !isStarred,
+                stars_count: (repo.stars_count || 0) + (isStarred ? -1 : 1) 
+              } 
+            : repo
+        )
+      );
+      
+      // For starred repos list, either remove the unstarred repo or update the starred one
+      if (isStarred) {
+        // Remove from starred list if unstarred
+        setStarredPrompts(repos => repos.filter(repo => repo.id !== repoId));
+      } else {
+        // Update in starred list if it exists there
+        setStarredPrompts(repos => {
+          const repoExists = repos.some(repo => repo.id === repoId);
+          if (repoExists) {
+            return repos.map(repo => 
+              repo.id === repoId 
+                ? { 
+                    ...repo, 
+                    isStarred: true,
+                    stars_count: (repo.stars_count || 0) + 1 
+                  } 
+                : repo
+            );
+          } else {
+            // Add the newly starred repo to the starred list
+            const repoToAdd = prompts.find(repo => repo.id === repoId);
+            if (repoToAdd) {
+              return [...repos, { 
+                ...repoToAdd, 
+                isStarred: true,
+                stars_count: (repoToAdd.stars_count || 0) + 1 
+              }];
+            }
+            return repos;
+          }
+        });
+      }
+      
+      // Update the profile star count if it's the user's profile
+      if (!username || (user && username === user.username)) {
+        setProfile(prev => {
+          if (prev) {
+            return {
+              ...prev,
+              starCount: isStarred 
+                ? Math.max((prev.starCount || 0) - 1, 0) 
+                : (prev.starCount || 0) + 1
+            };
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling star:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update starred status. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
   if (loading) {
@@ -296,12 +433,33 @@ const Profile: React.FC = () => {
               sx={{ 
                 width: 130, 
                 height: 130,
-                mb: 3,
+                mb: 2,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}
             >
               {profile.username[0].toUpperCase()}
             </Avatar>
+            
+            {/* Edit Profile button - only show if viewing own profile */}
+            {isAuthenticated && (!username || (user && username === user.username)) && (
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                component={Link}
+                to="/profile/edit"
+                size="small"
+                sx={{ 
+                  mb: 3, 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  px: 2,
+                  py: 0.5
+                }}
+              >
+                Edit Profile
+              </Button>
+            )}
+            
             <Typography variant="h4" fontWeight="bold" gutterBottom>
               {profile.full_name || profile.username}
             </Typography>
@@ -324,12 +482,12 @@ const Profile: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <LinkIcon fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} />
                   <MuiLink 
-                    href={profile.website} 
-                    target="_blank" 
+                    href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} 
+                    target="_blank"
                     rel="noopener noreferrer"
                     sx={{ color: 'primary.main', textDecoration: 'none' }}
                   >
-                    {profile.website.replace(/^https?:\/\//, '')}
+                    {profile.website.replace(/^(https?:\/\/)?(www\.)?/, '')}
                   </MuiLink>
                 </Box>
               )}
@@ -343,7 +501,6 @@ const Profile: React.FC = () => {
                 borderBottom: '1px solid', 
                 borderColor: 'divider',
                 pb: 1,
-                // textAlign: { xs: 'center', md: 'left' }
               }}>
                 Organizations
               </Typography>
@@ -361,44 +518,45 @@ const Profile: React.FC = () => {
                   }}
                 >
                   {organizations.map((org) => (
-                    <Tooltip key={org.id} title={org.display_name}>
+                    <Tooltip key={org.id} title={org.name}>
                       <Avatar
                         component={Link}
                         to={`/organizations/${org.name}`}
-                        alt={org.display_name}
-                        src={org.logo_image_id ? `/api/organizations/logo/${org.logo_image_id}` : 
-                             org.logo_url || undefined}
+                        alt={org.name}
+                        src={org.logo_image_id ? `/api/images/${org.logo_image_id}` : undefined}
                         sx={{ 
                           cursor: 'pointer',
                           transition: 'transform 0.2s',
                           '&:hover': { transform: 'scale(1.1)' }
                         }}
                       >
-                        {org.display_name[0].toUpperCase()}
+                        {org.name[0].toUpperCase()}
                       </Avatar>
                     </Tooltip>
                   ))}
-                  <Tooltip title="Join or create organization">
-                    <Avatar
-                      component={Link}
-                      to="/organizations"
-                      sx={{ 
-                        cursor: 'pointer',
-                        bgcolor: 'background.paper',
-                        color: 'primary.main',
-                        border: '1px dashed',
-                        borderColor: 'primary.main',
-                        transition: 'all 0.2s',
-                        '&:hover': { 
-                          bgcolor: 'primary.main', 
-                          color: 'white',
-                          transform: 'scale(1.1)'
-                        }
-                      }}
-                    >
-                      <AddIcon />
-                    </Avatar>
-                  </Tooltip>
+                  {isAuthenticated && (!username || (user && username === user.username)) && (
+                    <Tooltip title="Join or create organization">
+                      <Avatar
+                        component={Link}
+                        to="/organizations"
+                        sx={{ 
+                          cursor: 'pointer',
+                          bgcolor: 'background.paper',
+                          color: 'primary.main',
+                          border: '1px dashed',
+                          borderColor: 'primary.main',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            bgcolor: 'primary.main', 
+                            color: 'white',
+                            transform: 'scale(1.1)'
+                          }
+                        }}
+                      >
+                        <AddIcon />
+                      </Avatar>
+                    </Tooltip>
+                  )}
                 </AvatarGroup>
               ) : (
                 <Box sx={{ 
@@ -406,16 +564,22 @@ const Profile: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <Button
-                    component={Link}
-                    to="/organizations"
-                    startIcon={<AddIcon />}
-                    variant="outlined"
-                    size="small"
-                    sx={{ borderRadius: 2 }}
-                  >
-                    Join organization
-                  </Button>
+                  {isAuthenticated && (!username || (user && username === user.username)) ? (
+                    <Button
+                      component={Link}
+                      to="/organizations"
+                      startIcon={<AddIcon />}
+                      variant="outlined"
+                      size="small"
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Join organization
+                    </Button>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No organizations
+                    </Typography>
+                  )}
                 </Box>
               )}
             </Box>
@@ -432,7 +596,7 @@ const Profile: React.FC = () => {
             <Tabs 
               value={tabValue} 
               onChange={handleTabChange}
-              sx={{ 
+              sx={{
                 mb: 2,
                 borderBottom: 1, 
                 borderColor: 'divider',
@@ -444,7 +608,7 @@ const Profile: React.FC = () => {
               scrollButtons={isMobile ? "auto" : undefined}
             >
               <Tab 
-                label={`Prompts ${profile.promptCount}`} 
+                label={`Repositories ${profile.promptCount}`} 
                 sx={{ textTransform: 'none', fontWeight: 500 }} 
               />
               <Tab 
@@ -453,394 +617,87 @@ const Profile: React.FC = () => {
               />
             </Tabs>
 
-            {/* Prompts Tab */}
+            {/* Repositories Tab */}
             <TabPanel value={tabValue} index={0}>
               {prompts.length > 0 ? (
-                <Grid container spacing={3} sx={{ width: '100%', m: 0 }}>
-                  {prompts.map((prompt) => (
-                    <Grid item xs={12} key={prompt.id} sx={{ px: { xs: 0, sm: 1.5 } }}>
-                      <Card sx={{ 
-                        borderRadius: 2, 
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)', 
-                        border: '1px solid', 
-                        borderColor: 'divider',
-                        '&:hover': {
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          borderColor: 'primary.light',
-                          transition: 'all 0.3s ease'
-                        },
-                        width: '100%',
-                      }}>
-                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                          {/* Title and Description */}
-                          <Link 
-                            to={`/repositories/${prompt.id}`}
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                          >
-                            <Typography 
-                              variant="h5" 
-                              sx={{ 
-                                fontWeight: 700,
-                                mb: 1.5,
-                                color: 'text.primary',
-                                '&:hover': { color: 'primary.main' },
-                                fontSize: { xs: '1.25rem', md: '1.5rem' },
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {prompt.title}
-                            </Typography>
-                          </Link>
-                          
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary" 
-                            sx={{ 
-                              mb: 2.5,
-                              fontSize: '0.95rem',
-                              lineHeight: 1.5,
-                              display: '-webkit-box',
-                              overflow: 'hidden',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                            }}
-                          >
-                            {prompt.description || 'No description provided'}
-                          </Typography>
-                          
-                          {/* Tags */}
-                          {prompt.tags && prompt.tags.length > 0 && (
-                            <Box sx={{ 
-                              display: 'flex', 
-                              flexWrap: 'wrap', 
-                              gap: 1, 
-                              mb: 2.5,
-                              maxWidth: '100%',
-                              overflow: 'hidden',
-                            }}>
-                              {prompt.tags.map(tag => (
-                                <Chip 
-                                  key={tag.id} 
-                                  label={tag.name} 
-                                  size="small" 
-                                  variant="outlined"
-                                  sx={{ 
-                                    borderRadius: '16px',
-                                    maxWidth: '100%',
-                                  }}
-                                />
-                              ))}
-                            </Box>
-                          )}
-                          
-                          {/* Footer - metadata */}
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            rowGap: 2,
-                            width: '100%',
-                          }}>
-                            {/* User Info */}
-                            <Box sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              minWidth: 0,
-                              maxWidth: '70%',
-                            }}>
-                              <Avatar 
-                                sx={{ width: 28, height: 28, mr: 1, flexShrink: 0 }}
-                                alt={prompt.owner_user.username}
-                                src={prompt.owner_user.id === profile.id && profile.profile_image_id ? 
-                                  `/api/accounts/profile-image/${profile.profile_image_id}` : undefined}
-                              >
-                                {prompt.owner_user.username[0].toUpperCase()}
-                              </Avatar>
-                              <Typography 
-                                variant="body2" 
-                                component="span" 
-                                sx={{ 
-                                  mr: 2,
-                                  fontWeight: 500,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {prompt.owner_user.username}
-                              </Typography>
-                              
-                              {/* Visibility Badge */}
-                              <Chip 
-                                icon={prompt.is_public ? <PublicIcon fontSize="small" /> : <LockIcon fontSize="small" />}
-                                size="small"
-                                label={prompt.is_public ? "Public" : "Private"}
-                                color={prompt.is_public ? "success" : "default"}
-                                variant="outlined"
-                                sx={{ 
-                                  height: 24,
-                                  borderRadius: 3,
-                                  fontSize: '0.75rem',
-                                  flexShrink: 0,
-                                }}
-                              />
-                            </Box>
-                            
-                            {/* Right side metadata */}
-                            <Box sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              gap: { xs: 1, sm: 2 },
-                              color: 'text.secondary',
-                              fontSize: '0.875rem',
-                              flexShrink: 0,
-                            }}>
-                              {/* Star count */}
-                              {prompt.is_public && (
-                                <Box sx={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center',
-                                  gap: 0.5
-                                }}>
-                                  {prompt.stars_count > 0 ? (
-                                    <StarIcon fontSize="small" sx={{ color: '#f1c40f' }} />
-                                  ) : (
-                                    <StarBorderIcon fontSize="small" />
-                                  )}
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ 
-                                      fontWeight: prompt.stars_count > 0 ? 600 : 400
-                                    }}
-                                  >
-                                    {prompt.stars_count}
-                                  </Typography>
-                                </Box>
-                              )}
-                              
-                              {/* Creation date */}
-                              <Typography 
-                                variant="body2"
-                                sx={{
-                                  display: { xs: 'none', sm: 'block' }
-                                }}
-                              >
-                                {format(new Date(prompt.created_at), 'MMM d, yyyy')}
-                              </Typography>
-                              <Typography 
-                                variant="body2"
-                                sx={{
-                                  display: { xs: 'block', sm: 'none' }
-                                }}
-                              >
-                                {format(new Date(prompt.created_at), 'MM/dd/yy')}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </CardContent>
-                      </Card>
+                <Grid container spacing={3}>
+                  {prompts.map((repository) => (
+                    <Grid item xs={12} key={repository.id}>
+                      <RepositoryWideCard 
+                        repository={repository} 
+                        onStar={handleStarToggle}
+                        profileImage={profile.profile_image_id ? 
+                          `/api/accounts/profile-image/${profile.profile_image_id}` : undefined}
+                      />
                     </Grid>
                   ))}
                 </Grid>
               ) : (
-                <EmptyState message="No prompts found" />
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    p: 6,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                    borderRadius: 2
+                  }}
+                >
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+                    No repositories found
+                  </Typography>
+                </Box>
               )}
             </TabPanel>
 
-            {/* Starred Tab - Apply the same responsive fixes from above */}
+            {/* Starred Tab */}
             <TabPanel value={tabValue} index={1}>
               {starredPrompts.length > 0 ? (
-                <Grid container spacing={3} sx={{ width: '100%', m: 0 }}>
-                  {starredPrompts.map((prompt) => (
-                    <Grid item xs={12} key={prompt.id} sx={{ px: { xs: 0, sm: 1.5 } }}>
-                      <Card sx={{ 
-                        borderRadius: 2, 
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)', 
-                        border: '1px solid', 
-                        borderColor: 'divider',
-                        '&:hover': {
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          borderColor: 'primary.light',
-                          transition: 'all 0.3s ease'
-                        },
-                        width: '100%',
-                      }}>
-                        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                          {/* Title and Description */}
-                          <Link 
-                            to={`/repositories/${prompt.id}`}
-                            style={{ textDecoration: 'none', color: 'inherit' }}
-                          >
-                            <Typography 
-                              variant="h5" 
-                              sx={{ 
-                                fontWeight: 700,
-                                mb: 1.5,
-                                color: 'text.primary',
-                                '&:hover': { color: 'primary.main' },
-                                fontSize: { xs: '1.25rem', md: '1.5rem' },
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {prompt.title}
-                            </Typography>
-                          </Link>
-                          
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary" 
-                            sx={{ 
-                              mb: 2.5,
-                              fontSize: '0.95rem',
-                              lineHeight: 1.5,
-                              display: '-webkit-box',
-                              overflow: 'hidden',
-                              WebkitBoxOrient: 'vertical',
-                              WebkitLineClamp: 2,
-                            }}
-                          >
-                            {prompt.description || 'No description provided'}
-                          </Typography>
-                          
-                          {/* Tags */}
-                          {prompt.tags && prompt.tags.length > 0 && (
-                            <Box sx={{ 
-                              display: 'flex', 
-                              flexWrap: 'wrap', 
-                              gap: 1, 
-                              mb: 2.5,
-                              maxWidth: '100%',
-                              overflow: 'hidden',
-                            }}>
-                              {prompt.tags.map(tag => (
-                                <Chip 
-                                  key={tag.id} 
-                                  label={tag.name} 
-                                  size="small" 
-                                  variant="outlined"
-                                  sx={{ 
-                                    borderRadius: '16px',
-                                    maxWidth: '100%',
-                                  }}
-                                />
-                              ))}
-                            </Box>
-                          )}
-                          
-                          {/* Footer - metadata */}
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            rowGap: 2,
-                            width: '100%',
-                          }}>
-                            {/* User Info */}
-                            <Box sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              minWidth: 0,
-                              maxWidth: '70%',
-                            }}>
-                              <Avatar 
-                                sx={{ width: 28, height: 28, mr: 1, flexShrink: 0 }}
-                                alt={prompt.owner_user.username}
-                              >
-                                {prompt.owner_user.username[0].toUpperCase()}
-                              </Avatar>
-                              <Typography 
-                                variant="body2" 
-                                component="span" 
-                                sx={{ 
-                                  mr: 2,
-                                  fontWeight: 500,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {prompt.owner_user.username}
-                              </Typography>
-                              
-                              {/* Visibility Badge */}
-                              <Chip 
-                                icon={prompt.is_public ? <PublicIcon fontSize="small" /> : <LockIcon fontSize="small" />}
-                                size="small"
-                                label={prompt.is_public ? "Public" : "Private"}
-                                color={prompt.is_public ? "success" : "default"}
-                                variant="outlined"
-                                sx={{ 
-                                  height: 24,
-                                  borderRadius: 3,
-                                  fontSize: '0.75rem',
-                                  flexShrink: 0,
-                                }}
-                              />
-                            </Box>
-                            
-                            {/* Right side metadata */}
-                            <Box sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              gap: { xs: 1, sm: 2 },
-                              color: 'text.secondary',
-                              fontSize: '0.875rem',
-                              flexShrink: 0,
-                            }}>
-                              {/* Star count */}
-                              <Box sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                gap: 0.5
-                              }}>
-                                <StarIcon fontSize="small" sx={{ color: '#f1c40f' }} />
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    fontWeight: 600
-                                  }}
-                                >
-                                  {prompt.stars_count}
-                                </Typography>
-                              </Box>
-                              
-                              {/* Creation date */}
-                              <Typography 
-                                variant="body2"
-                                sx={{
-                                  display: { xs: 'none', sm: 'block' }
-                                }}
-                              >
-                                {format(new Date(prompt.created_at), 'MMM d, yyyy')}
-                              </Typography>
-                              <Typography 
-                                variant="body2"
-                                sx={{
-                                  display: { xs: 'block', sm: 'none' }
-                                }}
-                              >
-                                {format(new Date(prompt.created_at), 'MM/dd/yy')}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </CardContent>
-                      </Card>
+                <Grid container spacing={3}>
+                  {starredPrompts.map((repository) => (
+                    <Grid item xs={12} key={repository.id}>
+                      <RepositoryWideCard 
+                        repository={repository} 
+                        onStar={handleStarToggle}
+                        profileImage={profile.profile_image_id ? 
+                          `/api/accounts/profile-image/${profile.profile_image_id}` : undefined}
+                      />
                     </Grid>
                   ))}
                 </Grid>
               ) : (
-                <EmptyState message="No starred prompts" />
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    p: 6,
+                    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                    borderRadius: 2
+                  }}
+                >
+                  <Typography variant="h6" color="text.secondary">
+                    No starred repositories
+                  </Typography>
+                </Box>
               )}
             </TabPanel>
           </Box>
         </Box>
       </Container>
+      
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

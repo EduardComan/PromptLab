@@ -1,28 +1,43 @@
 import React from 'react';
-import { Route, Navigate, Routes, Outlet } from 'react-router-dom';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import Dashboard from './pages/Dashboard';
-import Settings from './pages/Settings';
-import OrganizationDetail from './pages/OrganizationDetail';
-import OrganizationCreate from './pages/OrganizationCreate';
-import Organizations from './pages/Organizations';
-import Repository from './pages/Repository';
-import RepositoryCreate from './pages/RepositoryCreate';
-import Terms from './pages/Terms';
-import Home from './pages/Home';
-import Profile from './pages/Profile';
-import Discover from './pages/Discover';
-import NotFound from './pages/NotFound';
-import { CircularProgress, Box, CssBaseline } from '@mui/material';
+import { CircularProgress, Box } from '@mui/material';
 import './App.css';
 import MainLayout from './components/Layout/MainLayout';
 
-// Protected route component that checks for authentication
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+// Import pages directly from their correct paths
+import Dashboard from './pages/Dashboard';
+import Discover from './pages/Discover';
+import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
+import Organizations from './pages/Organizations';
+import OrganizationDetail from './pages/OrganizationDetail';
+import OrganizationCreate from './pages/OrganizationCreate';
+import Repository from './pages/Repository';
+import RepositoryCreate from './pages/RepositoryCreate';
+import Settings from './pages/Settings';
+import Terms from './pages/Terms';
+import NotFound from './pages/NotFound';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#3f51b5',
+    },
+    secondary: {
+      main: '#f50057',
+    },
+  },
+});
+
+// Protected route component that wraps with MainLayout for consistent UI
+const ProtectedLayoutRoute = ({ element }: { element: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
@@ -37,79 +52,76 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
     return <Navigate to="/login" replace />;
   }
   
-  return children;
-};
-
-// Modified MainLayout to include Outlet
-const LayoutWithOutlet = () => {
   return (
     <MainLayout>
-      <Outlet />
+      {element}
     </MainLayout>
   );
 };
 
+// Public route component for already authenticated users
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 function App() {
   return (
-    <ThemeProvider>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
         <Routes>
-          <Route element={<LayoutWithOutlet />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/discover" element={<Discover />} />
-            <Route path="/organizations/:orgId" element={<OrganizationDetail />} />
-            <Route path="/org/:orgName" element={<OrganizationDetail />} />
-            <Route path="/users/:username" element={<Profile />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:username" element={<Profile />} />
-            <Route path="/organizations" element={<Organizations />} />
-            <Route 
-              path="/organizations/new" 
-              element={
-                <ProtectedRoute>
-                  <OrganizationCreate />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/repositories/:repoId" element={<Repository />} />
-            <Route 
-              path="/repositories/new" 
-              element={
-                <ProtectedRoute>
-                  <RepositoryCreate />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/settings" 
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/my-repositories" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-          </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Protected routes */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<ProtectedLayoutRoute element={<Dashboard />} />} />
+          <Route path="/discover" element={<ProtectedLayoutRoute element={<Discover />} />} />
+          <Route path="/organizations/:orgId" element={<ProtectedLayoutRoute element={<OrganizationDetail />} />} />
+          <Route path="/org/:orgName" element={<ProtectedLayoutRoute element={<OrganizationDetail />} />} />
+          <Route path="/users/:username" element={<ProtectedLayoutRoute element={<Profile />} />} />
+          <Route path="/profile" element={<ProtectedLayoutRoute element={<Profile />} />} />
+          <Route path="/profile/edit" element={<ProtectedLayoutRoute element={<EditProfile />} />} />
+          <Route path="/profile/:username" element={<ProtectedLayoutRoute element={<Profile />} />} />
+          <Route path="/organizations" element={<ProtectedLayoutRoute element={<Organizations />} />} />
+          <Route path="/organizations/new" element={<ProtectedLayoutRoute element={<OrganizationCreate />} />} />
+          <Route path="/repositories/:repoId" element={<ProtectedLayoutRoute element={<Repository />} />} />
+          <Route path="/repositories/new" element={<ProtectedLayoutRoute element={<RepositoryCreate />} />} />
+          <Route path="/settings" element={<ProtectedLayoutRoute element={<Settings />} />} />
+          <Route path="/my-repositories" element={<ProtectedLayoutRoute element={<Dashboard />} />} />
+
+          {/* Public routes - redirect to dashboard if already authenticated */}
+          <Route path="/login" element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          } />
+          <Route path="/register" element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          } />
+          <Route path="/forgot-password" element={
+            <PublicRoute>
+              <ForgotPassword />
+            </PublicRoute>
+          } />
+          
+          {/* Public routes that are accessible to all users */}
           <Route path="/terms" element={<Terms />} />
+          
+          {/* Catch all route for 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>

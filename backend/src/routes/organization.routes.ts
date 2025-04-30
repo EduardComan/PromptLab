@@ -214,7 +214,20 @@ router.put(
  *       - $ref: '#/components/parameters/orgNameParam'
  *       - $ref: '#/components/parameters/pageParam'
  *       - $ref: '#/components/parameters/limitParam'
-${orgRepositoryListSchema}
+ *     responses:
+ *       200:
+ *         description: List of organization repositories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 repositories:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Repository'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  *       500:
