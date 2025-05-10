@@ -10,7 +10,9 @@ import {
   Button,
   Grid,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   TrendingUp as TrendingIcon,
@@ -32,6 +34,11 @@ const Home: React.FC = () => {
   const [userRepos, setUserRepos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   const fetchRepos = useCallback(async () => {
     setLoading(true);
@@ -74,17 +81,75 @@ const Home: React.FC = () => {
     }
 
     try {
+      // Update UI immediately for better user experience
+      const updateRepoInList = (repos: any[]) => 
+        repos.map(repo => 
+          repo.id === repoId 
+            ? { 
+                ...repo, 
+                isStarred: !isStarred,
+                stars_count: (repo.stars_count || 0) + (isStarred ? -1 : 1) 
+              } 
+            : repo
+        );
+      
+      setTrendingRepos(prev => updateRepoInList(prev));
+      setRecentRepos(prev => updateRepoInList(prev));
+      setUserRepos(prev => updateRepoInList(prev));
+      
+      // Call the appropriate service method
       if (isStarred) {
         await api.delete(`/repositories/${repoId}/star`);
+        setSnackbar({
+          open: true,
+          message: 'Repository removed from your starred repositories',
+          severity: 'success'
+        });
       } else {
         await api.post(`/repositories/${repoId}/star`);
+        setSnackbar({
+          open: true,
+          message: 'Repository added to your starred repositories',
+          severity: 'success'
+        });
       }
       
-      // Refresh the repository data
-      fetchRepos();
+      // Refresh data from server to ensure consistency
+      const repoUrl = '/repositories?username=' + (user.username || '');
+      const response = await api.get(repoUrl);
+      const repositories = response.data.repositories || [];
+      
+      const formattedRepos = repositories.map((repo: any) => ({
+        id: repo.id,
+        name: repo.name,
+        description: repo.description,
+        is_public: repo.is_public,
+        created_at: repo.created_at,
+        updated_at: repo.updated_at,
+        stars_count: repo.stars_count || 0,
+        owner_user: repo.owner_user,
+        owner_org: repo.owner_org,
+        isStarred: repo.isStarred || false,
+        tags: repo.tags
+      }));
+      
+      // Refetch all repository data
+      await fetchRepos();
     } catch (error) {
       console.error('Error starring repository:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update starred status. Please try again.',
+        severity: 'error'
+      });
+      
+      // If there was an error, refresh the repos to ensure correct state
+      fetchRepos();
     }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -324,6 +389,17 @@ const Home: React.FC = () => {
           Create Repository
         </Button>
       </Paper>
+
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

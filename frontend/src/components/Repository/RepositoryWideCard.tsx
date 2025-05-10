@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -7,8 +7,7 @@ import {
   Chip, 
   Avatar, 
   IconButton,
-  Tooltip,
-  CircularProgress
+  Tooltip
 } from '@mui/material';
 import { 
   StarOutline as StarOutlineIcon,
@@ -33,7 +32,6 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
   profileImage
 }) => {
   const { user } = useAuth();
-  const [loadingStar, setLoadingStar] = useState(false);
   
   const ownerName = repository.owner_user 
     ? repository.owner_user.username 
@@ -55,18 +53,13 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
   // Calculate star count from either direct property or _count
   const starCount = repository.stars_count || repository._count?.stars || 0;
   
-  const handleStar = useCallback(async (e: React.MouseEvent) => {
+  const handleStar = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onStar && !loadingStar) {
-      try {
-        setLoadingStar(true);
-        await onStar(repository.id, !!repository.isStarred);
-      } finally {
-        setLoadingStar(false);
-      }
+    if (onStar) {
+      onStar(repository.id, !!repository.isStarred);
     }
-  }, [repository.id, repository.isStarred, onStar, loadingStar]);
+  }, [repository.id, repository.isStarred, onStar]);
 
   return (
     <Card sx={{ 
@@ -216,33 +209,17 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
               }}>
                 {user && (
                   <Tooltip title={repository.isStarred ? "Unstar repository" : "Star repository"}>
-                    <Box sx={{ display: 'inline-flex', position: 'relative' }}>
-                      <IconButton 
-                        size="small" 
-                        onClick={handleStar}
-                        disabled={loadingStar}
-                        sx={{ 
-                          color: repository.isStarred ? '#f1c40f' : 'text.secondary',
-                          '&:hover': { color: '#f1c40f' },
-                          opacity: loadingStar ? 0.5 : 1
-                        }}
-                        aria-label={repository.isStarred ? "Unstar repository" : "Star repository"}
-                      >
-                        {repository.isStarred ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
-                      </IconButton>
-                      {loadingStar && (
-                        <CircularProgress 
-                          size={16} 
-                          sx={{ 
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            marginTop: '-8px',
-                            marginLeft: '-8px'
-                          }} 
-                        />
-                      )}
-                    </Box>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleStar}
+                      sx={{ 
+                        color: repository.isStarred ? '#f1c40f' : 'text.secondary',
+                        '&:hover': { color: '#f1c40f' }
+                      }}
+                      aria-label={repository.isStarred ? "Unstar repository" : "Star repository"}
+                    >
+                      {repository.isStarred ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
+                    </IconButton>
                   </Tooltip>
                 )}
                 <Typography 

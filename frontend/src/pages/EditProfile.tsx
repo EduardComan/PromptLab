@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import {
   Container,
   Paper,
@@ -20,161 +20,27 @@ import {
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import UserService from '../services/UserService';
-
-// Define a simple profile state interface just for this component
-interface ProfileFormData {
-  full_name: string;
-  bio: string;
-}
+import { useProfileForm } from '../hooks/useProfileForm';
+import { useImageUpload } from '../hooks/useImageUpload';
 
 const EditProfile: React.FC = () => {
-  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [loading, setLoading] = useState<boolean>(false);
-  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
-  const [profileData, setProfileData] = useState<ProfileFormData>({
-    full_name: '',
-    bio: ''
-  });
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  
-  // Preview for the uploaded image
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (user) {
-      setProfileData({
-        full_name: user.full_name || '',
-        bio: user.bio || ''
-      });
-      
-      // Set initial image preview
-      if (user.profile_image_id) {
-        setImagePreview(`/api/accounts/profile-image/${user.profile_image_id}`);
-      } else if (user.picture_url) {
-        setImagePreview(user.picture_url);
-      }
-    }
-  }, [user]);
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setProfileData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
-  const handleImageClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-  
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      
-      // Create a preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      
-      try {
-        setUploadingImage(true);
-        
-        // Upload the image
-        const result = await UserService.uploadProfileImage(file);
-        
-        // Update the user context with new profile image id
-        if (updateUser && user) {
-          updateUser({
-            ...user,
-            profile_image_id: result.profile_image_id
-          });
-        }
-        
-        setNotification({
-          open: true,
-          message: 'Profile image updated successfully',
-          severity: 'success'
-        });
-      } catch (error) {
-        console.error('Error uploading profile image:', error);
-        setNotification({
-          open: true,
-          message: 'Failed to upload profile image',
-          severity: 'error'
-        });
-      } finally {
-        setUploadingImage(false);
-      }
-    }
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    setLoading(true);
-    try {
-      const updatedUser = await UserService.updateProfile({
-        full_name: profileData.full_name,
-        bio: profileData.bio
-      });
-      
-      // Update the user in the auth context
-      if (updateUser) {
-        updateUser(updatedUser);
-      }
-      
-      setNotification({
-        open: true,
-        message: 'Profile updated successfully',
-        severity: 'success'
-      });
-      
-      // Navigate back to profile after successful update
-      setTimeout(() => {
-        navigate('/profile');
-      }, 1500);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setNotification({
-        open: true,
-        message: 'Failed to update profile',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleCloseNotification = () => {
-    setNotification(prev => ({ ...prev, open: false }));
-  };
-  
-  if (!user) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-  
+  const {
+    profileData,
+    handleChange,
+    handleSubmit,
+    loading,
+    notification,
+    handleCloseNotification
+  } = useProfileForm();
+  const {
+    imagePreview,
+    uploadingImage,
+    fileInputRef,
+    handleImageClick,
+    handleImageChange
+  } = useImageUpload();
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper elevation={1} sx={{ p: 4, borderRadius: 2 }}>
@@ -189,12 +55,9 @@ const EditProfile: React.FC = () => {
             Edit Profile
           </Typography>
         </Box>
-        
         <Divider sx={{ mb: 4 }} />
-        
         <Box component="form" onSubmit={handleSubmit}>
           <Grid container spacing={4}>
-            {/* Profile Image Section */}
             <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Box
                 sx={{
@@ -206,7 +69,7 @@ const EditProfile: React.FC = () => {
               >
                 <Avatar
                   src={imagePreview || undefined}
-                  alt={user.username}
+                  alt={profileData.full_name || 'User'}
                   sx={{
                     width: 150,
                     height: 150,
@@ -216,7 +79,7 @@ const EditProfile: React.FC = () => {
                   }}
                   onClick={handleImageClick}
                 >
-                  {user.username[0].toUpperCase()}
+                  {(profileData.full_name ? profileData.full_name[0] : 'U').toUpperCase()}
                 </Avatar>
                 {uploadingImage && (
                   <CircularProgress
@@ -262,8 +125,6 @@ const EditProfile: React.FC = () => {
                 Click to upload a new profile image
               </Typography>
             </Grid>
-            
-            {/* Profile Details Section */}
             <Grid item xs={12} md={8}>
               <Grid container spacing={3}>
                 <Grid item xs={12}>
@@ -291,8 +152,6 @@ const EditProfile: React.FC = () => {
                 </Grid>
               </Grid>
             </Grid>
-            
-            {/* Submit Button */}
             <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 type="submit"
@@ -309,8 +168,6 @@ const EditProfile: React.FC = () => {
           </Grid>
         </Box>
       </Paper>
-      
-      {/* Notification */}
       <Snackbar
         open={notification.open}
         autoHideDuration={5000}

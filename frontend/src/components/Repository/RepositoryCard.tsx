@@ -16,7 +16,6 @@ import {
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { useAuth } from '../../contexts/AuthContext';
 import { Repository } from './RepositoryGrid';
 
 interface RepositoryCardProps {
@@ -28,8 +27,6 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
   repository,
   onStar
 }) => {
-  const { user } = useAuth();
-  
   const ownerName = repository.owner_user 
     ? repository.owner_user.username 
     : repository.owner_org?.name || 'Unknown';
@@ -160,8 +157,8 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
               size="small" 
               onClick={handleStar}
               sx={{ 
-                color: repository.isStarred ? 'primary.main' : 'text.secondary',
-                '&:hover': { color: 'primary.main' }
+                color: repository.isStarred ? '#f1c40f' : 'text.secondary',
+                '&:hover': { color: '#f1c40f' }
               }}
               aria-label={repository.isStarred ? "Unstar repository" : "Star repository"}
             >

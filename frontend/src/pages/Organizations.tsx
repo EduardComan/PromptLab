@@ -123,7 +123,7 @@ const Organizations: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/organizations/create')}
+            onClick={() => navigate('/organizations/new')}
             sx={{
               background: 'linear-gradient(45deg, #4568dc, #b06ab3)',
               boxShadow: '0 4px 12px rgba(176, 106, 179, 0.2)',
@@ -217,6 +217,7 @@ const Organizations: React.FC = () => {
                   }}
                 >
                   <CardContent sx={{ flexGrow: 1 }}>
+                    {/* Organization Header */}
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Avatar 
                         src={org.logo_image_id ? `/api/organizations/logo/${org.logo_image_id}` : undefined}
@@ -234,6 +235,9 @@ const Organizations: React.FC = () => {
                           sx={{ 
                             textDecoration: 'none', 
                             color: 'inherit',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
                             '&:hover': { color: 'primary.main' } 
                           }}
                         >
@@ -283,8 +287,15 @@ const Organizations: React.FC = () => {
                       to={`/organizations/${org.name}`}
                       size="small" 
                       fullWidth
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 1
+                      }}
                     >
-                      View Details
+                      <BusinessIcon fontSize="small" />
+                      View Organization Profile
                     </Button>
                   </CardActions>
                 </Card>

@@ -116,13 +116,7 @@ const Discover: React.FC = () => {
     }
     
     try {
-      if (isStarred) {
-        await api.delete(`/repositories/${repoId}/star`);
-      } else {
-        await api.post(`/repositories/${repoId}/star`);
-      }
-      
-      // Update the repository in the state
+      // Update UI immediately for better user experience
       setRepositories(prev => 
         prev.map(repo => {
           if (repo.id === repoId) {
@@ -138,8 +132,21 @@ const Discover: React.FC = () => {
           return repo;
         })
       );
+      
+      // Call the appropriate service method
+      if (isStarred) {
+        await api.delete(`/repositories/${repoId}/star`);
+      } else {
+        await api.post(`/repositories/${repoId}/star`);
+      }
+      
+      // Refresh data to ensure consistency
+      await fetchData();
     } catch (error) {
       console.error('Error starring repository:', error);
+      
+      // Refresh data in case of error
+      await fetchData();
     }
   };
 

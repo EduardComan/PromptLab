@@ -61,19 +61,60 @@ const Dashboard: React.FC = () => {
 
   const handleStarRepo = useCallback(async (repoId: string, isStarred: boolean): Promise<void> => {
     try {
+      // Update UI immediately for better user experience
+      const updateRepositories = (repos: Repository[]) => 
+        repos.map(repo => 
+          repo.id === repoId 
+            ? { 
+                ...repo, 
+                isStarred: !isStarred,
+                stars_count: (repo.stars_count || 0) + (isStarred ? -1 : 1) 
+              } 
+            : repo
+        );
+      
+      setMyRepositories(prev => updateRepositories(prev));
+      setStarredRepositories(prev => {
+        if (isStarred) {
+          // Remove from starred list if unstarred
+          return prev.filter(repo => repo.id !== repoId);
+        } else {
+          // Add to starred list if starred
+          const repoExists = prev.some(repo => repo.id === repoId);
+          if (repoExists) {
+            return updateRepositories(prev);
+          } else {
+            // Add the newly starred repo to the starred list
+            const repoToAdd = myRepositories.find(repo => repo.id === repoId);
+            if (repoToAdd) {
+              return [...prev, { 
+                ...repoToAdd, 
+                isStarred: true,
+                stars_count: (repoToAdd.stars_count || 0) + 1 
+              }];
+            }
+            return prev;
+          }
+        }
+      });
+      
+      // Call the appropriate service method
       if (isStarred) {
         await api.delete(`/repositories/${repoId}/star`);
       } else {
         await api.post(`/repositories/${repoId}/star`);
       }
       
-      // Refresh data
+      // Refresh data to ensure consistency
       await fetchUserRepositories();
     } catch (error) {
       console.error('Error starring repository:', error);
       setError('Failed to star repository. Please try again.');
+      
+      // Refresh in case of error
+      await fetchUserRepositories();
     }
-  }, [fetchUserRepositories]);
+  }, [fetchUserRepositories, myRepositories]);
 
   const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

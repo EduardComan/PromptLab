@@ -109,7 +109,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
   const menuItems: MenuItem[] = [
     { 
       title: 'Home', 
-      path: '/', 
+      path: '/dashboard', 
       icon: <HomeIcon /> 
     },
     { 
@@ -119,17 +119,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
     }
   ];
   
-  // Menu items that only appear when user is logged in
+  // Menu items that only appear when user is logged in - with reversed order
   const authenticatedMenuItems: MenuItem[] = [
-    { 
-      title: 'Create Repository', 
-      path: '/repositories/new', 
-      icon: <CreateIcon /> 
-    },
     { 
       title: 'Organizations', 
       path: '/organizations', 
       icon: <BusinessIcon /> 
+    },
+    { 
+      title: 'Create Repository', 
+      path: '/repositories/new', 
+      icon: <CreateIcon /> 
     }
   ];
 
@@ -252,51 +252,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open: propOpen, onToggle }) => {
                 </ListItem>
               ))}
             </List>
-
-            {/* Organization list */}
-            {open && organizations.length > 0 && (
-              <>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ px: 3, my: 2 }}>
-                  My Organizations
-                </Typography>
-                <List>
-                  {organizations.map((org) => (
-                    <ListItem 
-                      button 
-                      key={org.id} 
-                      component={NavLink} 
-                      to={`/organizations/${org.name}`}
-                      sx={{
-                        mb: 0.5,
-                        px: 2,
-                        py: 1,
-                        justifyContent: 'initial',
-                        color: 'text.primary',
-                        borderRadius: '0 20px 20px 0',
-                        '&.active': {
-                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                          color: 'primary.main',
-                          fontWeight: 'bold',
-                        },
-                        '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                        }
-                      }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 40, mr: 3 }}>
-                        <Avatar 
-                          src={org.logo_image_id ? `/api/images/${org.logo_image_id}` : undefined}
-                          sx={{ width: 24, height: 24 }}
-                        >
-                          {org.name.charAt(0).toUpperCase()}
-                        </Avatar>
-                      </ListItemIcon>
-                      <ListItemText primary={org.display_name || org.name} />
-                    </ListItem>
-                  ))}
-                </List>
-              </>
-            )}
           </>
         )}
       </Box>

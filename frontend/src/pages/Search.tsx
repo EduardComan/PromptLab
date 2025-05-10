@@ -17,14 +17,17 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Avatar
+  Avatar,
+  Alert,
+  IconButton
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Code as CodeIcon,
   Person as PersonIcon,
   Tag as TagIcon,
-  Business as OrganizationIcon
+  Business as BusinessIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -180,7 +183,7 @@ const Search: React.FC = () => {
               >
                 <Tab icon={<CodeIcon />} iconPosition="start" label={`Repositories (${searchState.repositories.length})`} />
                 <Tab icon={<PersonIcon />} iconPosition="start" label={`Users (${searchState.users.length})`} />
-                <Tab icon={<OrganizationIcon />} iconPosition="start" label={`Organizations (${searchState.organizations.length})`} />
+                <Tab icon={<BusinessIcon />} iconPosition="start" label={`Organizations (${searchState.organizations.length})`} />
                 <Tab icon={<TagIcon />} iconPosition="start" label={`Tags (${searchState.tags.length})`} />
               </Tabs>
               
@@ -418,10 +421,8 @@ const OrganizationGrid: React.FC<OrganizationGridProps> = ({ organizations }) =>
               '&:hover': {
                 transform: 'translateY(-4px)',
                 boxShadow: 4,
-              },
-              cursor: 'pointer'
+              }
             }}
-            onClick={() => navigate(`/organizations/${org.name}`)}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <Avatar
@@ -446,6 +447,17 @@ const OrganizationGrid: React.FC<OrganizationGridProps> = ({ organizations }) =>
                 {org.description}
               </Typography>
             )}
+            
+            <Button
+              variant="outlined"
+              size="small"
+              fullWidth
+              startIcon={<BusinessIcon />}
+              onClick={() => navigate(`/organizations/${org.name}`)}
+              sx={{ mt: 1 }}
+            >
+              View Organization Profile
+            </Button>
           </Paper>
         </Grid>
       ))}

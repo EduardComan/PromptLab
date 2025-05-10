@@ -73,15 +73,16 @@ export interface Repository {
   id: string;
   name: string;
   slug: string;
-  description?: string;
+  description: string | null;
   visibility: 'PUBLIC' | 'PRIVATE';
   organizationId?: string;
   createdById: string;
-  createdAt: string;
+  created_at: string;
   updatedAt: string;
   organization?: Organization;
   createdBy?: User;
   prompts?: Prompt[];
+  is_public: boolean;
 }
 
 // Prompt interfaces
