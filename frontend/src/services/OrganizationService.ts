@@ -139,4 +139,4 @@ class OrganizationService {
   }
 }
 
-export const organizationService = new OrganizationService(); 
+export default new OrganizationService(); 

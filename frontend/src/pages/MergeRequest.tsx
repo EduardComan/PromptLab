@@ -103,6 +103,10 @@ interface MergeRequestData {
       id: string;
       name: string;
     };
+    prompt?: {
+      id: string;
+      title: string;
+    };
   };
   prompt: {
     id: string;
@@ -267,10 +271,12 @@ const MergeRequest: React.FC = () => {
       <Box sx={{ mb: 4 }}>
         <Button
           startIcon={<BackIcon />}
-          onClick={() => navigate(`/repositories/${mergeRequest.repository.id}`)}
+          onClick={() => navigate(mergeRequest.repository.prompt?.id 
+            ? `/prompts/${mergeRequest.repository.prompt.id}` 
+            : `/repositories/${mergeRequest.repository.id}`)}
           sx={{ mb: 2 }}
         >
-          Back to Repository
+          Back to {mergeRequest.repository.prompt?.id ? 'Prompt' : 'Repository'}
         </Button>
         
         <Paper sx={{ p: 3 }}>

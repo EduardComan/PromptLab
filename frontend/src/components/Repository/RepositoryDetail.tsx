@@ -22,7 +22,6 @@ import {
   Lock as LockIcon,
   History as HistoryIcon,
   Code as CodeIcon,
-  FourK as ForkIcon
 } from '@mui/icons-material';
 import { useParams, Link, useNavigate, Outlet } from 'react-router-dom';
 import axios from 'axios';
@@ -48,8 +47,10 @@ interface Repository {
   created_at: string;
   updated_at: string;
   stars_count: number;
-  forks_count: number;
   is_starred?: boolean;
+  prompt?: {
+    id: string;
+  };
 }
 
 interface User {
@@ -127,19 +128,10 @@ const RepositoryDetail: React.FC = () => {
     }
   };
   
-  const handleFork = async () => {
-    try {
-      const response = await axios.post(`/repositories/${repoId}/fork`);
-      navigate(`/repositories/${response.data.id}`);
-    } catch (err) {
-      console.error('Error forking repository:', err);
-    }
-  };
-  
   const handleDelete = async () => {
     try {
       await axios.delete(`/repositories/${repoId}`);
-      navigate('/repositories');
+      navigate('/dashboard');
     } catch (err) {
       console.error('Error deleting repository:', err);
     }
@@ -207,14 +199,15 @@ const RepositoryDetail: React.FC = () => {
               >
                 {repository.is_starred ? 'Starred' : 'Star'} ({repository.stars_count})
               </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ForkIcon />}
-                onClick={handleFork}
-              >
-                Fork ({repository.forks_count})
-              </Button>
+              {repository.prompt?.id && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={() => navigate(`/prompts/${repository.prompt?.id}`)}
+                >
+                  View Prompt
+                </Button>
+              )}
               {isOwner() && (
                 <>
                   <IconButton

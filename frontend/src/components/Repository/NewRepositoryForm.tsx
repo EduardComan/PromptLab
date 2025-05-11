@@ -200,7 +200,20 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
         
         setSuccess(true);
         setTimeout(() => {
-          navigate(`/repositories/${repositoryId}`);
+          // Check if the repository has an associated prompt
+          RepositoryService.getRepositoryById(repositoryId)
+            .then(repo => {
+              if (repo.prompt?.id) {
+                navigate(`/prompts/${repo.prompt.id}`);
+              } else {
+                // Navigate to dashboard if no prompt exists
+                navigate('/dashboard');
+              }
+            })
+            .catch(() => {
+              // Navigate to dashboard on error
+              navigate('/dashboard');
+            });
         }, 1000);
       } else {
         // Create new repository with default prompt
@@ -228,11 +241,25 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
           // Navigate to the new repository after a short delay
           setTimeout(() => {
             if (result && result.repository && result.repository.id) {
-              navigate(`/repositories/${result.repository.id}`);
+              if (result.default_prompt && result.default_prompt.id) {
+                navigate(`/prompts/${result.default_prompt.id}`);
+              } else {
+                // Navigate to dashboard if no prompt exists
+                navigate('/dashboard');
+              }
             } else if (result && result.id) {
-              navigate(`/repositories/${result.id}`);
-            } else {
-              throw new Error('Repository creation failed, no repository ID returned');
+              // Try to get the prompt ID if available
+              RepositoryService.getRepositoryById(result.id)
+                .then(repo => {
+                  if (repo.prompt?.id) {
+                    navigate(`/prompts/${repo.prompt.id}`);
+                  } else {
+                    navigate('/dashboard');
+                  }
+                })
+                .catch(() => {
+                  navigate('/dashboard');
+                });
             }
           }, 1000);
         } catch (createError: any) {

@@ -5,7 +5,8 @@ import {
   Typography, 
   Box, 
   Avatar, 
-  IconButton
+  IconButton,
+  Chip
 } from '@mui/material';
 import { 
   StarOutline as StarOutlineIcon,
@@ -16,6 +17,7 @@ import {
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Repository } from '../../interfaces';
+import { useRepositoryNavigation } from '../../hooks/useRepositoryNavigation';
 
 interface RepositoryCardProps {
   repository: Repository;
@@ -26,6 +28,7 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
   repository,
   onStar
 }) => {
+  const { navigateToRepository } = useRepositoryNavigation();
   const isStarred = repository.isStarred || repository.is_starred;
   const ownerName = repository.owner_user ? repository.owner_user.username : repository.owner?.display_name;
   
@@ -59,6 +62,11 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
     }
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigateToRepository(repository);
+  };
+
   return (
     <Card 
       sx={{ 
@@ -69,9 +77,11 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
         transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: '0 6px 12px rgba(0,0,0,0.1)'
+          boxShadow: '0 6px 12px rgba(0,0,0,0.1)',
+          cursor: 'pointer'
         }
       }}
+      onClick={handleCardClick}
     >
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
@@ -84,13 +94,10 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography 
-              variant="h6" 
-              component={Link}
-              to={`/repositories/${repository.id}`}
+              variant="h6"
               sx={{ 
                 fontWeight: 600, 
                 color: 'text.primary',
-                textDecoration: 'none',
                 '&:hover': { color: 'primary.main' },
                 display: 'block',
                 overflow: 'hidden',
@@ -101,18 +108,31 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
               {repository.name}
             </Typography>
             
-            <Typography 
-              variant="body2" 
-              color="text.secondary"
-              component={Link}
-              to={ownerLink}
-              sx={{ 
-                textDecoration: 'none',
-                '&:hover': { textDecoration: 'underline' }
-              }}
-            >
-              {ownerName || ''}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                component={Link}
+                to={ownerLink}
+                onClick={(e) => e.stopPropagation()}
+                sx={{ 
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' }
+                }}
+              >
+                {ownerName || ''}
+              </Typography>
+              
+              {repository.prompt?.id && (
+                <Chip
+                  label="Prompt"
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ ml: 1, height: 18, fontSize: '0.7rem' }}
+                />
+              )}
+            </Box>
           </Box>
           
           {onStar && (

@@ -187,17 +187,7 @@ const Discover: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Search and Filter Section */}
-      <Paper 
-        elevation={1} 
-        sx={{ 
-          p: 3, 
-          mb: 3, 
-          borderRadius: 2,
-          transition: 'all 0.3s ease',
-          border: isSearchActive ? '1px solid #4a90e2' : '1px solid #eaeaea'
-        }}
-      >
+    
         <Box 
           component="form" 
           onSubmit={handleSearch}
@@ -275,8 +265,6 @@ const Discover: React.FC = () => {
           </Fade>
         )}
 
-        <Divider sx={{ mb: 2 }} />
-
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button 
@@ -341,7 +329,9 @@ const Discover: React.FC = () => {
             </Select>
           </FormControl>
         </Box>
-      </Paper>
+
+        <Divider sx={{ mt: 4, mb: 4 }} />
+
 
       {/* Content Section */}
       <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>

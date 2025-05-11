@@ -47,7 +47,6 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
-import { organizationService } from '../services/OrganizationService';
 import { Organization, OrganizationMember } from '../interfaces';
 import api from '../services/api';
 import { useOrganizationDetails } from '../hooks/useOrganizationDetails';

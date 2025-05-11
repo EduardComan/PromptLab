@@ -15,7 +15,7 @@ import EditProfile from './pages/EditProfile';
 import Organizations from './pages/Organizations';
 import OrganizationProfile from './pages/OrganizationProfile';
 import OrganizationCreate from './pages/OrganizationCreate';
-import Repository from './pages/Repository';
+import Prompt from './pages/Prompt';
 import RepositoryCreate from './pages/RepositoryCreate';
 import Terms from './pages/Terms';
 import NotFound from './pages/NotFound';
@@ -95,7 +95,7 @@ function App() {
           <Route path="/profile/:username" element={<ProtectedLayoutRoute element={<Profile />} />} />
           <Route path="/organizations" element={<ProtectedLayoutRoute element={<Organizations />} />} />
           <Route path="/organizations/new" element={<ProtectedLayoutRoute element={<OrganizationCreate />} />} />
-          <Route path="/repositories/:repoId" element={<ProtectedLayoutRoute element={<Repository />} />} />
+          <Route path="/prompts/:promptId" element={<ProtectedLayoutRoute element={<Prompt />} />} />
           <Route path="/repositories/new" element={<ProtectedLayoutRoute element={<RepositoryCreate />} />} />
           <Route path="/my-repositories" element={<ProtectedLayoutRoute element={<Dashboard />} />} />
 

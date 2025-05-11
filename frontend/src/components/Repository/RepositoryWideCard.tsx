@@ -20,6 +20,7 @@ import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import { Repository } from '../../interfaces';
+import { useRepositoryNavigation } from '../../hooks/useRepositoryNavigation';
 
 interface RepositoryWideCardProps {
   repository: Repository;
@@ -33,6 +34,7 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
   profileImage
 }) => {
   const { user } = useAuth();
+  const { navigateToRepository } = useRepositoryNavigation();
   
   const ownerName = repository.owner_user 
     ? repository.owner_user.username 
@@ -64,25 +66,31 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
     }
   }, [repository.id, repository.isStarred, onStar]);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigateToRepository(repository);
+  };
+
   return (
-    <Card sx={{ 
-      height: '100%',
-      borderRadius: 2,
-      border: '1px solid #eaeaea',
-      boxShadow: 'none',
-      transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-      '&:hover': {
-        transform: 'translateY(-4px)',
-        boxShadow: '0 6px 12px rgba(0,0,0,0.1)'
-      },
-      width: '100%',
-    }}>
+    <Card 
+      sx={{ 
+        height: '100%',
+        borderRadius: 2,
+        border: '1px solid #eaeaea',
+        boxShadow: 'none',
+        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 6px 12px rgba(0,0,0,0.1)',
+          cursor: 'pointer'
+        },
+        width: '100%',
+      }}
+      onClick={handleCardClick}
+    >
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         {/* Title and Description */}
-        <Link 
-          to={`/repositories/${repository.id}`}
-          style={{ textDecoration: 'none', color: 'inherit' }}
-        >
+        <Box>
           <Typography 
             variant="h5" 
             sx={{ 
@@ -94,11 +102,22 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center'
             }}
           >
             {repository.name}
+            {repository.prompt?.id && (
+              <Chip
+                label="Prompt"
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ ml: 1.5, height: 22, fontSize: '0.75rem' }}
+              />
+            )}
           </Typography>
-        </Link>
+        </Box>
         
         <Typography 
           variant="body2" 
@@ -161,18 +180,29 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
               sx={{ width: 28, height: 28, mr: 1, flexShrink: 0 }}
               alt={ownerName}
               src={ownerAvatar}
+              component={Link}
+              to={ownerLink}
+              onClick={(e) => e.stopPropagation()}
             >
               {ownerName ? ownerName[0].toUpperCase() : 'U'}
             </Avatar>
             <Typography 
               variant="body2" 
-              component="span" 
+              component={Link}
+              to={ownerLink}
+              onClick={(e) => e.stopPropagation()}
               sx={{ 
                 mr: 2,
                 fontWeight: 500,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                textDecoration: 'none',
+                color: 'inherit',
+                '&:hover': { 
+                  textDecoration: 'underline',
+                  color: 'primary.main'
+                }
               }}
             >
               {ownerName}

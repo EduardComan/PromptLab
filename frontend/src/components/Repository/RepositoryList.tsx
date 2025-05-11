@@ -46,6 +46,9 @@ interface Repository {
   created_at: string;
   updated_at: string;
   stars_count?: number;
+  prompt?: {
+    id: string;
+  };
 }
 
 interface RepositoryListProps {
@@ -209,7 +212,7 @@ const RepositoryList: React.FC<RepositoryListProps> = ({ username, orgName, show
           <Stack spacing={2}>
             {repositories.map((repo) => (
               <Card key={repo.id} sx={{ display: 'flex', flexDirection: 'column' }}>
-                <CardActionArea component={Link} to={`/repositories/${repo.id}`}>
+                <CardActionArea component={Link} to={repo.prompt?.id ? `/prompts/${repo.prompt.id}` : `/repositories/${repo.id}`}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Box>
@@ -218,6 +221,15 @@ const RepositoryList: React.FC<RepositoryListProps> = ({ username, orgName, show
                           <Typography variant="h6" component="div">
                             {repo.name}
                           </Typography>
+                          {repo.prompt?.id && (
+                            <Chip
+                              label="Has Prompt"
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                            />
+                          )}
                         </Box>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                           {repo.description || 'No description provided'}
