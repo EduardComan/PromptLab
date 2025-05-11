@@ -88,9 +88,16 @@ export interface Repository {
   createdBy?: User;
   prompts?: Prompt[];
   is_public: boolean;
+  owner?: {
+    id: string;
+    name: string;
+    display_name: string;
+    profile_image_id?: string;
+  };
   owner_user?: {
     id: string;
     username: string;
+    profile_image_id?: string;
     profile_image?: {
       id: string;
     };
@@ -103,6 +110,7 @@ export interface Repository {
     };
   };
   stars_count?: number;
+  star_count?: number;
   isStarred?: boolean;
   is_starred?: boolean;
   _count?: {

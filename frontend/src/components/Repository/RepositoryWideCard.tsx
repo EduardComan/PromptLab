@@ -13,12 +13,13 @@ import {
   StarOutline as StarOutlineIcon,
   Star as StarIcon,
   Public as PublicIcon,
-  Lock as LockIcon
+  Lock as LockIcon,
+  CalendarToday as CalendarIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
-import { Repository } from './RepositoryGrid';
+import { Repository } from '../../interfaces';
 
 interface RepositoryWideCardProps {
   repository: Repository;
@@ -65,14 +66,14 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
 
   return (
     <Card sx={{ 
-      borderRadius: 2, 
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)', 
-      border: '1px solid', 
-      borderColor: 'divider',
+      height: '100%',
+      borderRadius: 2,
+      border: '1px solid #eaeaea',
+      boxShadow: 'none',
+      transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
       '&:hover': {
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        borderColor: 'primary.light',
-        transition: 'all 0.3s ease'
+        transform: 'translateY(-4px)',
+        boxShadow: '0 6px 12px rgba(0,0,0,0.1)'
       },
       width: '100%',
     }}>
@@ -236,22 +237,12 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
             )}
             
             {/* Creation date */}
-            <Typography 
-              variant="body2"
-              sx={{
-                display: { xs: 'none', sm: 'block' }
-              }}
-            >
-              {format(new Date(repository.created_at), 'MMM d, yyyy')}
-            </Typography>
-            <Typography 
-              variant="body2"
-              sx={{
-                display: { xs: 'block', sm: 'none' }
-              }}
-            >
-              {format(new Date(repository.created_at), 'MM/dd/yy')}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
+              <Typography variant="body2" color="text.secondary">
+                {formatDistanceToNow(new Date(repository.created_at), { addSuffix: true })}
+              </Typography>
+            </Box>
           </Box>
         </Box>
       </CardContent>

@@ -1,86 +1,49 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Clear as ClearIcon,
+  Person as PersonIcon,
+  Search as SearchIcon,
+  TrendingUp as TrendingIcon
+} from '@mui/icons-material';
 import {
   Box,
-  Typography,
-  Container,
-  Paper,
-  CircularProgress,
-  TextField,
-  InputAdornment,
-  Card,
-  CardContent,
-  Avatar,
-  Chip,
-  Grid,
   Button,
-  IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Fade,
+  Chip,
+  CircularProgress,
+  Container,
   Divider,
-  Tooltip,
-  Stack
+  Fade,
+  FormControl,
+  Grid,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Typography
 } from '@mui/material';
-import {
-  TrendingUp as TrendingIcon,
-  Search as SearchIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Person as PersonIcon,
-  Sort as SortIcon,
-  Clear as ClearIcon,
-  FilterList as FilterIcon,
-  CalendarToday as CalendarIcon,
-  Business as BusinessIcon,
-  GroupOutlined as GroupIcon,
-  Code as CodeIcon
-} from '@mui/icons-material';
-import { useNavigate, Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import api from '../services/api';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import OrganizationCard from '../components/Organization/OrganizationCard';
+import RepositoryCard from '../components/Repository/RepositoryCard';
 import { useAuth } from '../contexts/AuthContext';
+import { Organization, Repository } from '../interfaces';
+import api from '../services/api';
 import RepositoryService from '../services/RepositoryService';
 
-interface Repository {
-  id: string;
-  name: string;
-  description: string;
-  star_count: number;
-  stars_count: number;
-  is_starred: boolean;
-  isStarred: boolean;
-  created_at: string;
-  // Organization specific fields
-  display_name?: string;
-  logo_image_id?: string;
-  member_count?: number;
-  repository_count?: number;
-  total_stars?: number;
-  // Repository specific fields
-  owner?: {
-    id: string;
-    name: string;
-    display_name: string;
-    profile_image_id?: string;
-  };
-  owner_user?: {
-    id: string;
-    username: string;
-    profile_image_id?: string;
-  };
-}
+interface DiscoverRepository extends Repository {}
+interface DiscoverOrganization extends Organization {}
 
 const Discover: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [items, setItems] = useState<Array<DiscoverRepository | DiscoverOrganization>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('stars');
-  const [contentType, setContentType] = useState('repositories');
+  const [contentType, setContentType] = useState<'repositories' | 'organizations'>('repositories');
   const [isSearchActive, setIsSearchActive] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -110,7 +73,7 @@ const Discover: React.FC = () => {
           throw new Error('Invalid response format from server');
         }
         
-        setRepositories(response.data.repositories || []);
+        setItems(response.data.repositories || []);
       } else if (contentType === 'organizations') {
         // Use search endpoint if search is active, otherwise use popular
         const endpoint = isSearchActive && searchQuery
@@ -139,12 +102,12 @@ const Discover: React.FC = () => {
           console.log('First organization example:', response.data.organizations[0]);
         }
         
-        setRepositories(response.data.organizations || []);
+        setItems(response.data.organizations || []);
       }
     } catch (error) {
       console.error(`Error fetching ${contentType}:`, error);
       setError(`Failed to load ${contentType}. Please try again later.`);
-      setRepositories([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -189,18 +152,18 @@ const Discover: React.FC = () => {
       }
       
       // Update UI with the accurate star count from backend
-      setRepositories(prev => 
-        prev.map(repo => {
-          if (repo.id === repoId) {
+      setItems(prev => 
+        prev.map(item => {
+          if (contentType === 'repositories' && 'id' in item && item.id === repoId) {
             return { 
-              ...repo, 
+              ...item, 
               isStarred: !isStarred,
               is_starred: !isStarred,
               stars_count: updatedStars,
               star_count: updatedStars
-            };
+            } as DiscoverRepository;
           }
-          return repo;
+          return item;
         })
       );
       
@@ -306,7 +269,7 @@ const Discover: React.FC = () => {
                 sx={{ mr: 1 }}
               />
               <Typography variant="body2" color="text.secondary">
-                {repositories.length} results found
+                {items.length} results found
               </Typography>
             </Box>
           </Fade>
@@ -316,40 +279,36 @@ const Discover: React.FC = () => {
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title="Browse repositories">
-              <Button 
-                variant={contentType === 'repositories' ? "contained" : "outlined"}
-                onClick={() => {
-                  setContentType('repositories');
-                  setSortBy('stars');
-                  if (isSearchActive) {
-                    // Re-run search with new content type
-                    fetchData();
-                  }
-                }}
-                startIcon={<TrendingIcon />}
-                sx={{ borderRadius: '8px' }}
-              >
-                Repositories
-              </Button>
-            </Tooltip>
-            <Tooltip title="Browse organizations">
-              <Button 
-                variant={contentType === 'organizations' ? "contained" : "outlined"}
-                onClick={() => {
-                  setContentType('organizations');
-                  setSortBy('name');
-                  if (isSearchActive) {
-                    // Re-run search with new content type
-                    fetchData();
-                  }
-                }}
-                startIcon={<PersonIcon />}
-                sx={{ borderRadius: '8px' }}
-              >
-                Organizations
-              </Button>
-            </Tooltip>
+            <Button 
+              variant={contentType === 'repositories' ? "contained" : "outlined"}
+              onClick={() => {
+                setContentType('repositories');
+                setSortBy('stars');
+                if (isSearchActive) {
+                  // Re-run search with new content type
+                  fetchData();
+                }
+              }}
+              startIcon={<TrendingIcon />}
+              sx={{ borderRadius: '8px' }}
+            >
+              Repositories
+            </Button>
+            <Button 
+              variant={contentType === 'organizations' ? "contained" : "outlined"}
+              onClick={() => {
+                setContentType('organizations');
+                setSortBy('name');
+                if (isSearchActive) {
+                  // Re-run search with new content type
+                  fetchData();
+                }
+              }}
+              startIcon={<PersonIcon />}
+              sx={{ borderRadius: '8px' }}
+            >
+              Organizations
+            </Button>
           </Box>
           
           <FormControl size="small" variant="outlined" sx={{ minWidth: 180 }}>
@@ -402,7 +361,7 @@ const Discover: React.FC = () => {
           </Box>
         ) : (
           <Box>
-            {repositories.length === 0 ? (
+            {items.length === 0 ? (
               <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h6" color="text.secondary">
                   {isSearchActive ? 
@@ -422,232 +381,17 @@ const Discover: React.FC = () => {
               </Box>
             ) : (
               <Grid container spacing={3}>
-                {repositories.map((repo) => (
-                  <Grid item xs={12} md={6} key={repo.id}>
+                {items.map((item) => (
+                  <Grid item xs={12} md={6} key={item.id}>
                     {contentType === 'repositories' ? (
-                      /* Repository Card */
-                      <Card 
-                        sx={{ 
-                          height: '100%',
-                          borderRadius: 2,
-                          border: '1px solid #eaeaea',
-                          boxShadow: 'none',
-                          transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: '0 6px 12px rgba(0,0,0,0.1)'
-                          }
-                        }}
-                      >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-                            <Avatar 
-                              src={
-                                (repo.owner?.profile_image_id ? 
-                                  `/api/images/${repo.owner.profile_image_id}` : 
-                                  repo.owner_user?.profile_image_id ? 
-                                    `/api/accounts/profile-image/${repo.owner_user.profile_image_id}` : 
-                                    undefined)
-                              }
-                              alt={"Created by: " + (repo.owner_user?.username) || repo.owner_user?.username || ''}
-                              sx={{ width: 40, height: 40, mr: 2 }}
-                            >
-                              {(repo.owner?.display_name?.[0]?.toUpperCase() || 
-                                repo.owner_user?.username?.[0]?.toUpperCase() || 
-                                <PersonIcon />)
-                              }
-                            </Avatar>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography 
-                                variant="h6" 
-                                component={Link}
-                                to={`/repositories/${repo.id}`}
-                                sx={{ 
-                                  fontWeight: 600, 
-                                  color: 'text.primary',
-                                  textDecoration: 'none',
-                                  '&:hover': { color: 'primary.main' },
-                                  display: 'block',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                {repo.name}
-                              </Typography>
-                              
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                                component={Link}
-                                to={repo.owner_user ? 
-                                  `/profile/${repo.owner_user.username}` : 
-                                  repo.owner ? 
-                                    `/organizations/${repo.owner.name}` : 
-                                    '#'
-                                }
-                                sx={{ 
-                                  textDecoration: 'none',
-                                  '&:hover': { textDecoration: 'underline' }
-                                }}
-                              >
-                                {repo.owner?.display_name || repo.owner_user?.username || ''}
-                              </Typography>
-                            </Box>
-                            
-                            {user && (
-                              <IconButton 
-                                onClick={() => handleStarRepo(
-                                  repo.id, 
-                                  repo.isStarred !== undefined ? repo.isStarred : (repo.is_starred || false)
-                                )}
-                                size="small"
-                                color="primary"
-                                aria-label={
-                                  (repo.isStarred || repo.is_starred) ? "Unstar repository" : "Star repository"
-                                }
-                              >
-                                {(repo.isStarred || repo.is_starred) ? (
-                                  <StarIcon fontSize="small" sx={{ color: '#f1c40f' }} />
-                                ) : (
-                                  <StarBorderIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            )}
-                          </Box>
-                          
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary"
-                            sx={{ 
-                              mb: 2,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                            }}
-                          >
-                            {repo.description || 'No description provided'}
-                          </Typography>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <StarIcon fontSize="small" sx={{ color: '#f1c40f', mr: 0.5 }} />
-                              <Typography variant="body2">
-                                {repo.stars_count !== undefined ? repo.stars_count : (repo.star_count || 0)}
-                              </Typography>
-                            </Box>
-                            {repo.created_at && (
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
-                                <Typography variant="body2" color="text.secondary">
-                                  {formatDistanceToNow(new Date(repo.created_at), { addSuffix: true })}
-                                </Typography>
-                              </Box>
-                            )}
-                          </Box>
-                        </CardContent>
-                      </Card>
+                      <RepositoryCard 
+                        repository={item as DiscoverRepository} 
+                        onStar={handleStarRepo}
+                      />
                     ) : (
-                      /* Organization Card */
-                      <Card 
-                        sx={{ 
-                          height: '100%',
-                          borderRadius: 2,
-                          border: '1px solid #eaeaea',
-                          boxShadow: 'none',
-                          transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: '0 6px 12px rgba(0,0,0,0.1)'
-                          }
-                        }}
-                      >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-                            <Avatar 
-                              src={repo.logo_image_id ? `/api/images/${repo.logo_image_id}` : undefined}
-                              alt={repo.display_name || repo.name || ''}
-                              sx={{ width: 50, height: 50, mr: 2, bgcolor: 'primary.main' }}
-                            >
-                              {repo.display_name?.[0]?.toUpperCase() || repo.name?.[0]?.toUpperCase() || <BusinessIcon />}
-                            </Avatar>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography 
-                                variant="h6" 
-                                component={Link}
-                                to={`/organizations/${repo.name}`}
-                                sx={{ 
-                                  fontWeight: 600, 
-                                  color: 'text.primary',
-                                  textDecoration: 'none',
-                                  '&:hover': { color: 'primary.main' },
-                                  display: 'block',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                {repo.display_name || repo.name}
-                              </Typography>
-                              
-                              <Typography 
-                                variant="body2" 
-                                color="text.secondary"
-                              >
-                                @{repo.name}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary"
-                            sx={{ 
-                              mb: 3,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              minHeight: '40px'
-                            }}
-                          >
-                            {repo.description || 'No description provided'}
-                          </Typography>
-                          
-                          <Box 
-                            sx={{ 
-                              display: 'flex', 
-                              justifyContent: 'space-between', 
-                              mb: 2 
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <GroupIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
-                              <Typography variant="body2" color="text.secondary">
-                                {repo.member_count || 0} members
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <CodeIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
-                              <Typography variant="body2" color="text.secondary">
-                                {repo.repository_count || 0} repos
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          {repo.created_at && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                              <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', mr: 0.5 }} />
-                              <Typography variant="body2" color="text.secondary">
-                                {formatDistanceToNow(new Date(repo.created_at), { addSuffix: true })}
-                              </Typography>
-                            </Box>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <OrganizationCard 
+                        organization={item as DiscoverOrganization}
+                      />
                     )}
                   </Grid>
                 ))}

@@ -9,12 +9,6 @@ import {
   CircularProgress,
   Button,
   Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Avatar,
-  Chip,
-  Divider,
   TextField,
   InputAdornment,
   FormControl,
@@ -23,23 +17,19 @@ import {
   MenuItem,
   SelectChangeEvent,
   Pagination,
-  Stack,
   Alert
 } from '@mui/material';
 import {
   TrendingUp as TrendingIcon,
   Person as PersonIcon,
   Add as AddIcon,
-  Stars as StarsIcon,
-  People as PeopleIcon,
-  Business as BusinessIcon,
   Search as SearchIcon
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import { formatDistanceToNow } from 'date-fns';
 import { Organization } from '../interfaces';
+import OrganizationCard from '../components/Organization/OrganizationCard';
 
 const Organizations: React.FC = () => {
   const { user } = useAuth();
@@ -202,101 +192,7 @@ const Organizations: React.FC = () => {
           <Grid container spacing={3}>
             {organizations.map((org) => (
               <Grid item xs={12} sm={6} md={4} key={org.id}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-5px)',
-                      boxShadow: '0 10px 20px rgba(0,0,0,0.1)',
-                    }
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    {/* Organization Header */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Avatar 
-                        src={org.logo_image_id ? `/api/organizations/logo/${org.logo_image_id}` : undefined}
-                        sx={{ 
-                          width: 56, 
-                          height: 56,
-                          marginRight: 2,
-                          bgcolor: 'primary.main'
-                        }}
-                      >
-                        <BusinessIcon />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="h6" component={Link} to={`/organizations/${org.name}`} 
-                          sx={{ 
-                            textDecoration: 'none', 
-                            color: 'inherit',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            '&:hover': { color: 'primary.main' } 
-                          }}
-                        >
-                          {org.display_name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          @{org.name}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    
-                    <Typography variant="body2" sx={{ mb: 2, minHeight: '40px' }}>
-                      {org.description?.substring(0, 100) || 'No description'}
-                      {(org.description?.length || 0) > 100 ? '...' : ''}
-                    </Typography>
-                    
-                    <Box sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'center',
-                      alignItems: 'center', 
-                      gap: 1, 
-                      mb: 2,
-                      flexWrap: 'wrap' 
-                    }}>
-                      <Chip 
-                        icon={<PeopleIcon />} 
-                        label={`${org.member_count || 0} members`} 
-                        variant="outlined" 
-                        size="small"
-                      />
-                      <Chip 
-                        icon={<StarsIcon />} 
-                        label={`${org.repository_count || 0} repos`} 
-                        variant="outlined" 
-                        size="small"
-                      />
-                    </Box>
-                    
-                    <Typography variant="caption" color="text.secondary">
-                      Created {formatDistanceToNow(new Date(org.created_at))} ago
-                    </Typography>
-                  </CardContent>
-                  <Divider />
-                  <CardActions>
-                    <Button 
-                      component={Link} 
-                      to={`/organizations/${org.name}`}
-                      size="small" 
-                      fullWidth
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 1
-                      }}
-                    >
-                      <BusinessIcon fontSize="small" />
-                      View Organization Profile
-                    </Button>
-                  </CardActions>
-                </Card>
+                <OrganizationCard organization={org} withLink={true} />
               </Grid>
             ))}
           </Grid>
