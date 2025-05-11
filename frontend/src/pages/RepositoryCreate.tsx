@@ -23,39 +23,17 @@ const RepositoryCreate: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ pt: 2, pb: 4 }}>
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          sx={{ 
-            mb: 4, 
-            fontWeight: 700 
-          }}
-        >
+        <Box>
+        <Typography variant="h4" component="h1" fontWeight="bold">
           Create Repository
         </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 3, mb: 4 }}>
+          Your prompt's home: track versions, customize inputs, and collaborate
+        </Typography>
+      </Box>
         
         <NewRepositoryForm initialOrgId={organizationId} />
-        
-        <Box
-          sx={{
-            mt: 4,
-            p: 3,
-            backgroundColor: 'rgba(0, 0, 0, 0.02)',
-            borderRadius: 2
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            About repositories
-          </Typography>
-          <Typography variant="body1" paragraph>
-            A repository contains all the files for your prompt project, including the prompt text, 
-            variables, and version history.
-          </Typography>
-          <Typography variant="body1" paragraph>
-            Repositories can be public or private. Public repositories are visible to anyone, 
-            while private repositories are only visible to you and collaborators you invite.
-          </Typography>
-        </Box>
+    
       </Box>
     </Container>
   );

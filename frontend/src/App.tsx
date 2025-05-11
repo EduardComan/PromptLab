@@ -17,7 +17,6 @@ import OrganizationProfile from './pages/OrganizationProfile';
 import OrganizationCreate from './pages/OrganizationCreate';
 import Repository from './pages/Repository';
 import RepositoryCreate from './pages/RepositoryCreate';
-import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import NotFound from './pages/NotFound';
 import Login from './pages/Login';
@@ -98,7 +97,6 @@ function App() {
           <Route path="/organizations/new" element={<ProtectedLayoutRoute element={<OrganizationCreate />} />} />
           <Route path="/repositories/:repoId" element={<ProtectedLayoutRoute element={<Repository />} />} />
           <Route path="/repositories/new" element={<ProtectedLayoutRoute element={<RepositoryCreate />} />} />
-          <Route path="/settings" element={<ProtectedLayoutRoute element={<Settings />} />} />
           <Route path="/my-repositories" element={<ProtectedLayoutRoute element={<Dashboard />} />} />
 
           {/* Public routes - redirect to dashboard if already authenticated */}

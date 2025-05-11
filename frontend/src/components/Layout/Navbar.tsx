@@ -72,11 +72,6 @@ const Navbar: React.FC<NavbarProps> = ({ onDrawerToggle }) => {
     navigate('/profile');
   };
 
-  const handleSettings = () => {
-    handleClose();
-    navigate('/settings');
-  };
-
   return (
     <AppBar 
       position="relative"
@@ -163,7 +158,6 @@ const Navbar: React.FC<NavbarProps> = ({ onDrawerToggle }) => {
                 onClose={handleClose}
               >
                 <MenuItem onClick={handleProfile}>Profile</MenuItem>
-                <MenuItem onClick={handleSettings}>Settings</MenuItem>
                 <MenuItem onClick={handleLogout}>Logout</MenuItem>
               </Menu>
             </>
