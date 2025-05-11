@@ -71,41 +71,16 @@ const Profile: React.FC = () => {
         return;
       }
 
-      let updatedStars = 0;
-      
       if (isStarred) {
-        const result = await RepositoryService.unstarRepository(repoId);
-        updatedStars = result.stars;
-        
-        // Update local state immediately
-        setLocalPrompts(prev => 
-          prev.map(repo => repo.id === repoId ? { ...repo, isStarred: false, stars_count: updatedStars } : repo)
-        );
-        setLocalStarredPrompts(prev => prev.filter(repo => repo.id !== repoId));
-        setStarCount(prevCount => Math.max(0, prevCount - 1));
-        
-        setSnackbar({ open: true, message: 'Repository unstarred', severity: 'success' });
+        await RepositoryService.unstarRepository(repoId);
       } else {
-        const result = await RepositoryService.starRepository(repoId);
-        updatedStars = result.stars;
-        
-        // Update local state immediately
-        const repoToStar = localPrompts.find(repo => repo.id === repoId);
-        if (repoToStar) {
-          const updatedRepo = { ...repoToStar, isStarred: true, stars_count: updatedStars };
-          setLocalPrompts(prev => 
-            prev.map(repo => repo.id === repoId ? updatedRepo : repo)
-          );
-          // Only add to starred if not already there
-          setLocalStarredPrompts(prev => {
-            const exists = prev.some(repo => repo.id === repoId);
-            return exists ? prev : [...prev, updatedRepo];
-          });
-          setStarCount(prevCount => prevCount + 1);
-        }
-        
-        setSnackbar({ open: true, message: 'Repository starred', severity: 'success' });
+        await RepositoryService.starRepository(repoId);
       }
+
+      // Refresh from backend to get updated star count
+      await refresh();
+
+      setSnackbar({ open: true, message: isStarred ? 'Repository unstarred' : 'Repository starred', severity: 'success' });
     } catch (err) {
       console.error(err);
       setSnackbar({ open: true, message: 'Error updating star', severity: 'error' });

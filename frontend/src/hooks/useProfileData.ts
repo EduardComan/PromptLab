@@ -59,7 +59,11 @@ export function useProfileData(
         isStarred: true
       }));
       setStarredPrompts(starredRepos);
-      userData.starCount = starredRepos.length;
+      
+      // Use star count from API response if available, otherwise use the length of starred repositories
+      userData.starCount = starRes.data.starCount !== undefined ? 
+        starRes.data.starCount : 
+        starredRepos.length;
 
       // Cross mark starred flags in prompts
       const starredIds = new Set(starredRepos.map(r => r.id));

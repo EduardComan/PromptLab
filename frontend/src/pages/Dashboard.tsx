@@ -8,26 +8,49 @@ import {
   Tabs, 
   Tab, 
   Alert,
-  Button
+  Button,
+  Grid,
+  Snackbar
 } from '@mui/material';
 import { 
   Code as CodeIcon, 
   Star as StarIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
-import RepositoryGrid, { Repository } from '../components/Repository/RepositoryGrid';
+import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import RepositoryService from '../services/RepositoryService';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel({ children, value, index }: TabPanelProps) {
+  return value === index ? <Box sx={{ py: 3 }}>{children}</Box> : null;
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <Box sx={{ py: 5, textAlign: 'center' }}>
+      <Typography variant="body1" color="text.secondary">{message}</Typography>
+    </Box>
+  );
+}
 
 // This file exists to resolve the import in App.tsx
 // The Home component contains the dashboard functionality
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [myRepositories, setMyRepositories] = useState<Repository[]>([]);
-  const [starredRepositories, setStarredRepositories] = useState<Repository[]>([]);
+  const [myRepositories, setMyRepositories] = useState<any[]>([]);
+  const [starredRepositories, setStarredRepositories] = useState<any[]>([]);
   const [tabValue, setTabValue] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [starCount, setStarCount] = useState<number>(0);
 
   const fetchUserRepositories = useCallback(async () => {
     if (!user) return;
@@ -42,8 +65,9 @@ const Dashboard: React.FC = () => {
       
       // Fetch starred repos using the endpoint that works
       try {
-        const starredResponse = await api.get(`/repositories/starred`);
+        const starredResponse = await api.get(`/accounts/me/starred`);
         const starredRepos = starredResponse.data.repositories || [];
+        setStarCount(starredResponse.data.starCount || starredRepos.length);
         
         // Update starred status in user repositories
         const starredRepoIds = new Set(starredRepos.map((repo: any) => repo.id));
@@ -80,62 +104,38 @@ const Dashboard: React.FC = () => {
     }
   }, [user, fetchUserRepositories]);
 
-  const handleStarRepo = useCallback(async (repoId: string, isStarred: boolean): Promise<void> => {
+  const handleStarToggle = async (repoId: string, isStarred: boolean) => {
     try {
-      // Update UI immediately for better user experience
-      const updateRepositories = (repos: Repository[]) => 
-        repos.map(repo => 
-          repo.id === repoId 
-            ? { 
-                ...repo, 
-                isStarred: !isStarred,
-                stars_count: (repo.stars_count || 0) + (isStarred ? -1 : 1) 
-              } 
-            : repo
-        );
-      
-      setMyRepositories(prev => updateRepositories(prev));
-      setStarredRepositories(prev => {
-        if (isStarred) {
-          // Remove from starred list if unstarred
-          return prev.filter(repo => repo.id !== repoId);
-        } else {
-          // Add to starred list if starred
-          const repoExists = prev.some(repo => repo.id === repoId);
-          if (repoExists) {
-            return updateRepositories(prev);
-          } else {
-            // Add the newly starred repo to the starred list
-            const repoToAdd = myRepositories.find(repo => repo.id === repoId);
-            if (repoToAdd) {
-              return [...prev, { 
-                ...repoToAdd, 
-                isStarred: true,
-                stars_count: (repoToAdd.stars_count || 0) + 1 
-              }];
-            }
-            return prev;
-          }
-        }
-      });
-      
-      // Call the appropriate service method
-      if (isStarred) {
-        await api.delete(`/repositories/${repoId}/star`);
-      } else {
-        await api.post(`/repositories/${repoId}/star`);
+      if (!isAuthenticated) {
+        // If not authenticated, nothing to do
+        return;
       }
-      
-      // Refresh data to ensure consistency
+
+      if (isStarred) {
+        await RepositoryService.unstarRepository(repoId);
+      } else {
+        await RepositoryService.starRepository(repoId);
+      }
+
+      // Refresh from backend to get updated star count
       await fetchUserRepositories();
-    } catch (error) {
-      console.error('Error starring repository:', error);
-      setError('Failed to star repository. Please try again.');
-      
-      // Refresh in case of error
-      await fetchUserRepositories();
+
+      setSnackbar({ 
+        open: true, 
+        message: isStarred ? 'Repository unstarred' : 'Repository starred', 
+        severity: 'success' 
+      });
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ 
+        open: true, 
+        message: 'Error updating star', 
+        severity: 'error' 
+      });
+      // Refresh from server on error to ensure consistent state
+      fetchUserRepositories();
     }
-  }, [fetchUserRepositories, myRepositories]);
+  };
 
   const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -195,12 +195,12 @@ const Dashboard: React.FC = () => {
             <Tab 
               icon={<CodeIcon fontSize="small" />} 
               iconPosition="start" 
-              label="My Repositories" 
+              label={`My Repositories ${myRepositories.length || 0}`} 
             />
             <Tab 
               icon={<StarIcon fontSize="small" />} 
               iconPosition="start" 
-              label="Starred" 
+              label={`Starred ${starCount || 0}`} 
             />
           </Tabs>
           
@@ -210,28 +210,51 @@ const Dashboard: React.FC = () => {
             </Box>
           ) : (
             <>
-              <Box role="tabpanel" hidden={tabValue !== 0}>
-                {tabValue === 0 && (
-                  <RepositoryGrid 
-                    repositories={myRepositories}
-                    onStar={handleStarRepo}
-                    emptyMessage="You haven't created any repositories yet."
-                  />
+              <TabPanel value={tabValue} index={0}>
+                {myRepositories.length > 0 ? (
+                  <Grid container spacing={3}>
+                    {myRepositories.map(repo => (
+                      <Grid item xs={12} key={repo.id}>
+                        <RepositoryWideCard
+                          repository={repo}
+                          onStar={handleStarToggle}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <EmptyState message="You haven't created any repositories yet." />
                 )}
-              </Box>
-              <Box role="tabpanel" hidden={tabValue !== 1}>
-                {tabValue === 1 && (
-                  <RepositoryGrid 
-                    repositories={starredRepositories}
-                    onStar={handleStarRepo}
-                    emptyMessage="You haven't starred any repositories yet."
-                  />
+              </TabPanel>
+              <TabPanel value={tabValue} index={1}>
+                {starredRepositories.length > 0 ? (
+                  <Grid container spacing={3}>
+                    {starredRepositories.map(repo => (
+                      <Grid item xs={12} key={repo.id}>
+                        <RepositoryWideCard
+                          repository={repo}
+                          onStar={handleStarToggle}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <EmptyState message="You haven't starred any repositories yet." />
                 )}
-              </Box>
+              </TabPanel>
             </>
           )}
         </Paper>
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+      </Snackbar>
     </Container>
   );
 };

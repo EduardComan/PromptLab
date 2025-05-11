@@ -83,6 +83,18 @@ export interface Repository {
   createdBy?: User;
   prompts?: Prompt[];
   is_public: boolean;
+  primaryPrompt?: {
+    id: string;
+    title: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+    versions: any[];
+  };
+  metrics?: {
+    promptCount: number;
+    starCount: number;
+  };
 }
 
 // Prompt interfaces
