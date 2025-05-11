@@ -77,25 +77,29 @@ export function useOrganizationDetails(): UseOrganizationDetailsReturn {
         
         const formattedRepos: Repository[] = 
           (reposResponse?.data?.repositories && Array.isArray(reposResponse.data.repositories))
-            ? reposResponse.data.repositories.map((repo: any) => ({
-                id: repo.id || '',
-                name: repo.name || '',
-                description: repo.description || '',
-                is_public: repo.is_public !== undefined ? repo.is_public : true,
-                created_at: repo.created_at || repo.createdAt || new Date().toISOString(),
-                updated_at: repo.updated_at || repo.updatedAt,
-                owner_org: repo.owner_org || repo.organization || null,
-                owner_user: repo.owner_user || repo.createdBy || null,
-                _count: {
-                  stars: repo._count?.stars || repo.stars_count || 0 
-                },
-                stars_count: repo.stars_count || repo._count?.stars || 0,
-                isStarred: repo.isStarred || repo.is_starred || false,
-                metrics: {
-                  stars: repo.metrics?.stars || repo._count?.stars || repo.stars_count || 0,
-                  starCount: repo.metrics?.starCount || repo._count?.stars || repo.stars_count || 0
-                }
-              }))
+            ? reposResponse.data.repositories.map((repo: any) => {
+                const isStarred = repo.is_starred || false;
+                return {
+                  id: repo.id || '',
+                  name: repo.name || '',
+                  description: repo.description || '',
+                  is_public: repo.is_public !== undefined ? repo.is_public : true,
+                  created_at: repo.created_at || repo.created_at || new Date().toISOString(),
+                  updated_at: repo.updated_at || repo.updated_at,
+                  owner_org: repo.owner_org || repo.organization || null,
+                  owner_user: repo.owner_user || repo.created_by || null,
+                  _count: {
+                    stars: repo._count?.stars || repo.stars_count || 0 
+                  },
+                  stars_count: repo.stars_count || repo._count?.stars || 0,
+                  isStarred: isStarred, // Keep for backwards compatibility
+                  is_starred: isStarred,
+                  metrics: {
+                    stars: repo.metrics?.stars || repo._count?.stars || repo.stars_count || 0,
+                    star_count: repo.metrics?.star_count || repo._count?.stars || repo.stars_count || 0
+                  }
+                };
+              })
             : [];
         
         setRepositories(formattedRepos);

@@ -22,7 +22,7 @@ const OrganizationCreate: React.FC = () => {
       {/* Page header */}
       <Box sx={{ mb: 5, textAlign: 'left' }}>
         <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
-          Create New Organization
+          Organizations
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600}}>
           Collaborate more effectively through shared prompt spaces

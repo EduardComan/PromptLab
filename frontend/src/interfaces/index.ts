@@ -31,13 +31,13 @@ export interface UserProfile {
 
 export interface Account {
   id: string;
-  userId: string;
+  user_id: string;
   type: string;
   provider: string;
-  providerAccountId: string;
-  accessToken?: string;
-  refreshToken?: string;
-  expiresAt?: number;
+  provider_account_id: string;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
   user?: User;
 }
 
@@ -79,13 +79,12 @@ export interface Repository {
   slug?: string;
   description: string | null;
   visibility?: 'PUBLIC' | 'PRIVATE';
-  organizationId?: string;
-  createdById?: string;
+  organization_id?: string;
+  created_by_id?: string;
   created_at: string;
-  updatedAt?: string;
   updated_at?: string;
   organization?: Organization;
-  createdBy?: User;
+  created_by?: User;
   prompts?: Prompt[];
   is_public: boolean;
   owner?: {
@@ -117,12 +116,12 @@ export interface Repository {
     stars?: number;
   };
   metrics?: {
-    promptCount?: number;
-    starCount?: number;
+    prompt_count?: number;
+    star_count?: number;
     stars?: number;
-    isStarred?: boolean;
+    is_starred?: boolean;
   };
-  primaryPrompt?: {
+  primary_prompt?: {
     id: string;
     title: string;
     description: string;
@@ -166,11 +165,11 @@ export interface PromptVersion {
   author_id?: string;
   created_at: string;
   updated_at?: string;
-  createdAt?: string; // For backward compatibility
-  updatedAt?: string; // For backward compatibility
+  created_at_deprecated?: string; // For backward compatibility
+  updated_at_deprecated?: string; // For backward compatibility
   prompt?: Prompt;
   author?: User;
-  createdBy?: User; // For backward compatibility
+  created_by?: User; // For backward compatibility
   metadata_json?: {
     parameters?: PromptParameters;
     [key: string]: any;
@@ -186,8 +185,8 @@ export interface ChatMessage {
 
 export interface PromptRun {
   id: string;
-  promptId: string;
-  versionId: string;
+  prompt_id: string;
+  version_id: string;
   model: string;
   input: Record<string, string>;
   parameters: PromptParameters;
@@ -195,12 +194,12 @@ export interface PromptRun {
   metrics: PromptRunMetrics;
   log?: PromptRunLog[];
   status: 'SUCCESS' | 'FAILURE' | 'PENDING';
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
   prompt?: Prompt;
   version?: PromptVersion;
-  createdBy?: User;
+  created_by?: User;
 }
 
 export interface PromptParameters {
@@ -231,31 +230,30 @@ export interface MergeRequest {
   title: string;
   description?: string;
   status: 'OPEN' | 'CLOSED' | 'MERGED';
-  promptId: string;
-  sourceVersionId: string;
-  targetVersionId: string;
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
+  prompt_id: string;
+  source_version_id: string;
+  target_version_id: string;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
   prompt?: Prompt;
-  sourceVersion?: PromptVersion;
-  targetVersion?: PromptVersion;
-  createdBy?: User;
+  source_version?: PromptVersion;
+  target_version?: PromptVersion;
+  created_by?: User;
   comments?: MergeRequestComment[];
 }
 
 export interface MergeRequestComment {
   id: string;
-  mergeRequestId: string;
+  merge_request_id: string;
   content: string;
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
-  mergeRequest?: MergeRequest;
-  createdBy?: User;
+  created_at: string;
+  updated_at: string;
+  merge_request?: MergeRequest;
+  created_by?: User;
 }
 
-// Auth interfaces
+// Authentication interfaces
 export interface LoginCredentials {
   username: string;
   password: string;
@@ -274,7 +272,7 @@ export interface AuthResponse {
   user: User;
 }
 
-// Pagination interface
+// Pagination interfaces
 export interface PaginationData {
   total: number;
   page: number;

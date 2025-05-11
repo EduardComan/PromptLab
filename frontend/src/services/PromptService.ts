@@ -90,8 +90,8 @@ class PromptService {
   ): Promise<any> {
     try {
       const requestBody = {
-        promptId,
-        versionId,
+        prompt_id: promptId,
+        version_id: versionId,
         input_variables: data.input,
         model_settings: data.parameters
       };

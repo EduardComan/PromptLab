@@ -113,8 +113,8 @@ export class AuthService {
   static async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     try {
       await api.put('/accounts/password', {
-        currentPassword: currentPassword.trim(),
-        newPassword: newPassword.trim()
+        current_password: currentPassword.trim(),
+        new_password: newPassword.trim()
       });
     } catch (error) {
       throw handleApiError(error);

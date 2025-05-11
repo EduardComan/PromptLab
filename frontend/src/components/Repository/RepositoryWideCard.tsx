@@ -58,13 +58,16 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
     (repository._count && repository._count.stars) || 
     0;
   
+  // For backwards compatibility - check both isStarred and is_starred properties
+  const isStarred = repository.is_starred || repository.isStarred || false;
+  
   const handleStar = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (onStar) {
-      onStar(repository.id, !!repository.isStarred);
+      onStar(repository.id, !!isStarred);
     }
-  }, [repository.id, repository.isStarred, onStar]);
+  }, [repository.id, isStarred, onStar]);
 
   const handleCardClick = (e: React.MouseEvent) => {
     // e.preventDefault();
@@ -241,17 +244,17 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
                 gap: 0.5
               }}>
                 {user && (
-                  <Tooltip title={repository.isStarred ? "Unstar repository" : "Star repository"}>
+                  <Tooltip title={isStarred ? "Unstar repository" : "Star repository"}>
                     <IconButton 
                       size="small" 
                       onClick={handleStar}
                       sx={{ 
-                        color: repository.isStarred ? '#f1c40f' : 'text.secondary',
+                        color: isStarred ? '#f1c40f' : 'text.secondary',
                         '&:hover': { color: '#f1c40f' }
                       }}
-                      aria-label={repository.isStarred ? "Unstar repository" : "Star repository"}
+                      aria-label={isStarred ? "Unstar repository" : "Star repository"}
                     >
-                      {repository.isStarred ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
+                      {isStarred ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
                     </IconButton>
                   </Tooltip>
                 )}

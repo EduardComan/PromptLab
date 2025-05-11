@@ -29,7 +29,7 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
   onStar
 }) => {
   const { navigateToRepository } = useRepositoryNavigation();
-  const isStarred = repository.isStarred || repository.is_starred;
+  const isStarred = repository.is_starred || repository.isStarred || false;
   const ownerName = repository.owner_user ? repository.owner_user.username : repository.owner?.display_name;
   
   const ownerAvatar = repository.owner_user?.profile_image_id

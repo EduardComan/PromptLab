@@ -140,7 +140,7 @@ export class RepositoryService {
     try {
       const response = await api.get(`/repositories/${id}/star`);
       console.log(`Repository star check response:`, response.data);
-      return response.data.isStarred || false;
+      return response.data.is_starred || false;
     } catch (error: any) {
       // A 404 response means the repository is not starred
       if (error.response && error.response.status === 404) {

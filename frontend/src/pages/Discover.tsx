@@ -32,8 +32,8 @@ import { Organization, Repository } from '../interfaces';
 import api from '../services/api';
 import RepositoryService from '../services/RepositoryService';
 
-interface DiscoverRepository extends Repository {}
-interface DiscoverOrganization extends Organization {}
+type DiscoverRepository = Repository;
+type DiscoverOrganization = Organization;
 
 const Discover: React.FC = () => {
   const navigate = useNavigate();
@@ -89,11 +89,13 @@ const Discover: React.FC = () => {
                 repo.metrics?.stars !== undefined ? repo.metrics.stars :
                 repo._count?.stars !== undefined ? repo._count.stars : 
                 0;
+              
+              const isStarred = starredRepoIds.has(repo.id);
                 
               return {
                 ...repo,
-                isStarred: starredRepoIds.has(repo.id),
-                is_starred: starredRepoIds.has(repo.id),
+                isStarred: isStarred, // Keep for backwards compatibility
+                is_starred: isStarred,
                 stars_count: starCount,
                 star_count: starCount,
                 // Ensure _count exists for RepositoryCard compatibility
@@ -195,11 +197,11 @@ const Discover: React.FC = () => {
           if (contentType === 'repositories' && 'id' in item && item.id === repoId) {
             return { 
               ...item, 
-              isStarred: !isStarred,
-              is_starred: !isStarred,
+              isStarred: !isStarred, // Keep for backwards compatibility
+              is_starred: !isStarred, // Always update both properties
               stars_count: updatedStars,
               star_count: updatedStars
-            } as DiscoverRepository;
+            };
           }
           return item;
         })

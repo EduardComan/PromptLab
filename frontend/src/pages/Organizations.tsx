@@ -100,7 +100,7 @@ const Organizations: React.FC = () => {
       
       <Box>
         <Typography variant="h4" component="h1" fontWeight="bold">
-          Create New Organization
+          Organizations
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 3 }}>
           Manage prompts as a team with organizations
@@ -127,16 +127,9 @@ const Organizations: React.FC = () => {
       </Box>
 
       {/* Search and Filter Section */}
-      <Paper
-        elevation={1}
-        sx={{
-          mb: 4,
-          p: 3,
-          borderRadius: 2,
-        }}
-      >
+      <Box sx={{ mb: 4 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={10}>
             <form onSubmit={handleSearchSubmit}>
               <TextField
                 fullWidth
@@ -156,7 +149,7 @@ const Organizations: React.FC = () => {
               />
             </form>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={2}>
             <FormControl fullWidth variant="outlined">
               <InputLabel id="sort-select-label">Sort by</InputLabel>
               <Select
@@ -174,41 +167,48 @@ const Organizations: React.FC = () => {
             </FormControl>
           </Grid>
         </Grid>
-      </Paper>
+      </Box>
 
       {/* Organizations Grid */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : error ? (
-        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
-      ) : organizations.length === 0 ? (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          No organizations found. {search && "Try adjusting your search criteria."}
-        </Alert>
-      ) : (
-        <>
-          <Grid container spacing={3}>
-            {organizations.map((org) => (
-              <Grid item xs={12} sm={6} md={4} key={org.id}>
-                <OrganizationCard organization={org} withLink={true} />
-              </Grid>
-            ))}
-          </Grid>
+      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="h5" component="h2" fontWeight={600} sx={{ mb: 3 }}>
+          My Organizations
+        </Typography>
+
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+        ) : organizations.length === 0 ? (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            No organizations found. {search && "Try adjusting your search criteria."}
+          </Alert>
+        ) : (
+          <>
+            <Grid container spacing={3}>
+              {organizations.map((org) => (
+                <Grid item xs={12} sm={6} md={4} key={org.id}>
+                  <OrganizationCard organization={org} withLink={true} />
+                </Grid>
+              ))}
+            </Grid>
+            
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Pagination 
+                  count={totalPages} 
+                  page={page} 
+                  onChange={handlePageChange} 
+                  color="primary" 
+                />
+              </Box>
+            )}
+          </>
           
-          {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination 
-                count={totalPages} 
-                page={page} 
-                onChange={handlePageChange} 
-                color="primary" 
-              />
-            </Box>
-          )}
-        </>
-      )}
+        )}
+      </Paper>
     </Container>
   );
 };

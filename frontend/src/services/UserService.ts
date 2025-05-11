@@ -76,8 +76,8 @@ export class UserService {
    */
   static async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await api.put('/accounts/password', {
-      currentPassword: currentPassword.trim(),
-      newPassword: newPassword.trim()
+      current_password: currentPassword.trim(),
+      new_password: newPassword.trim()
     });
   }
 

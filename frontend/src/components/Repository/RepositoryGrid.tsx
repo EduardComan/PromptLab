@@ -40,10 +40,16 @@ export interface Repository {
   created_at: string;
   updated_at?: string;
   stars_count?: number;
+  metrics?: {
+    stars?: number;
+    prompt_count?: number;
+    star_count?: number;
+    is_starred?: boolean;
+  };
   _count?: {
     stars?: number;
   };
-  isStarred?: boolean;
+  is_starred?: boolean;
   prompt?: {
     id: string;
     title: string;
@@ -130,9 +136,17 @@ const RepositoryGrid: React.FC<RepositoryGridProps> = ({
             return {
               ...repo,
               isStarred: false,
-              is_starred: false, // Also update is_starred for API compatibility
+              is_starred: false,
               stars_count: updatedStars,
-              _count: { ...repo._count, stars: updatedStars }
+              _count: { ...(repo._count || {}), stars: updatedStars },
+              // Conditionally add metrics if it exists
+              ...(repo.metrics ? {
+                metrics: {
+                  ...(repo.metrics || {}),
+                  stars: updatedStars,
+                  star_count: updatedStars
+                }
+              } : {})
             };
           }
           return repo;
@@ -146,9 +160,17 @@ const RepositoryGrid: React.FC<RepositoryGridProps> = ({
             return {
               ...repo,
               isStarred: true,
-              is_starred: true, // Also update is_starred for API compatibility
+              is_starred: true,
               stars_count: updatedStars,
-              _count: { ...repo._count, stars: updatedStars }
+              _count: { ...(repo._count || {}), stars: updatedStars },
+              // Conditionally add metrics if it exists
+              ...(repo.metrics ? {
+                metrics: {
+                  ...(repo.metrics || {}),
+                  stars: updatedStars,
+                  star_count: updatedStars
+                }
+              } : {})
             };
           }
           return repo;

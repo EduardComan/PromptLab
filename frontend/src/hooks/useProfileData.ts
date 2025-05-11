@@ -126,7 +126,7 @@ function mapRepo(repo: any): Repository {
     stars_count: starCount,
     owner_user: repo.owner_user,
     owner_org: repo.owner_org,
-    isStarred: repo.isStarred || false,
+    is_starred: repo.is_starred || false,
     tags: repo.tags,
     prompt: repo.prompt || (repo.primaryPrompt ? {
       id: repo.primaryPrompt.id,

@@ -21,7 +21,7 @@ const RepositoryCreate: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: 2 }}>
       <Box sx={{ pt: 2, pb: 4 }}>
         <Box>
         <Typography variant="h4" component="h1" fontWeight="bold">

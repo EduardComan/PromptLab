@@ -97,14 +97,14 @@ const Prompt: React.FC = () => {
       version_number: promptVersion.version_number,
       content_snapshot: content,
       commit_message: promptVersion.commit_message || promptVersion.description,
-      author: promptVersion.author || promptVersion.createdBy ? {
-        id: (promptVersion.author || promptVersion.createdBy)!.id,
-        username: (promptVersion.author || promptVersion.createdBy)!.username,
-        profile_image: (promptVersion.author || promptVersion.createdBy)!.profile_image ? {
-          id: (promptVersion.author || promptVersion.createdBy)!.profile_image!.id
+      author: promptVersion.author || promptVersion.created_by ? {
+        id: (promptVersion.author || promptVersion.created_by)!.id,
+        username: (promptVersion.author || promptVersion.created_by)!.username,
+        profile_image: (promptVersion.author || promptVersion.created_by)!.profile_image ? {
+          id: (promptVersion.author || promptVersion.created_by)!.profile_image!.id
         } : undefined
       } : undefined,
-      created_at: promptVersion.created_at || promptVersion.createdAt || ''
+      created_at: promptVersion.created_at || promptVersion.created_at_deprecated || ''
     };
   };
 
@@ -144,8 +144,8 @@ const Prompt: React.FC = () => {
         // Set latest version as current
         if (versionsData && versionsData.length > 0) {
           const latestVersion = versionsData.sort((a: PromptVersion, b: PromptVersion) => 
-            new Date(b.created_at || b.createdAt || '').getTime() - 
-            new Date(a.created_at || a.createdAt || '').getTime()
+            new Date(b.created_at || b.created_at_deprecated || '').getTime() - 
+            new Date(a.created_at || a.created_at_deprecated || '').getTime()
           )[0];
           
           setCurrentVersion(latestVersion);
@@ -217,8 +217,8 @@ const Prompt: React.FC = () => {
       
       // Find the newest version (should be the one we just created)
       const newVersion = versionsData.sort((a: PromptVersion, b: PromptVersion) => 
-        new Date(b.created_at || b.createdAt || '').getTime() - 
-        new Date(a.created_at || a.createdAt || '').getTime()
+        new Date(b.created_at || b.created_at_deprecated || '').getTime() - 
+        new Date(a.created_at || a.created_at_deprecated || '').getTime()
       )[0];
       
       setCurrentVersion(newVersion);

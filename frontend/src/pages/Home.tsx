@@ -129,7 +129,7 @@ const Home: React.FC = () => {
         const updateReposList = (repos: any[]) => 
           repos.map(repo => 
             repo.id === repoId 
-              ? { ...repo, isStarred: false, stars_count: updatedStars } 
+              ? { ...repo, isStarred: false, is_starred: false, stars_count: updatedStars } 
               : repo
           );
         
@@ -150,7 +150,7 @@ const Home: React.FC = () => {
         const updateReposList = (repos: any[]) => 
           repos.map(repo => 
             repo.id === repoId 
-              ? { ...repo, isStarred: true, stars_count: updatedStars } 
+              ? { ...repo, isStarred: true, is_starred: true, stars_count: updatedStars } 
               : repo
           );
         
