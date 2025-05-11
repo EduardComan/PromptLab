@@ -11,7 +11,8 @@ import {
   Slider,
   Container,
   Grid,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { 
   Edit as EditIcon,
@@ -23,6 +24,7 @@ import { PromptService } from '../services';
 import { Prompt as PromptType, PromptVersion, PromptParameters } from '../interfaces';
 import PromptContent from '../components/Prompt/PromptContent';
 import VersionHistory from '../components/Prompt/VersionHistory';
+import PromptOptimizer from '../components/Prompt/PromptOptimizer';
 
 // Interface for tab panel props
 interface TabPanelProps {
@@ -81,23 +83,45 @@ const Prompt: React.FC = () => {
     max_tokens: 500,
     presence_penalty: 0.0
   });
+  const [error, setError] = useState<string | null>(null);
 
   // Convert PromptVersion to Version for VersionHistory component
   const convertToVersionFormat = (promptVersion: PromptVersion): Version => {
+    const content = 
+      typeof promptVersion.content === 'string' ? promptVersion.content : 
+      typeof promptVersion.content_snapshot === 'string' ? promptVersion.content_snapshot :
+      JSON.stringify(promptVersion.content || promptVersion.content_snapshot || '');
+    
     return {
       id: promptVersion.id,
-      version_number: promptVersion.version,
-      content_snapshot: typeof promptVersion.content === 'string' ? promptVersion.content : JSON.stringify(promptVersion.content),
-      commit_message: promptVersion.description,
-      author: promptVersion.createdBy ? {
-        id: promptVersion.createdBy.id,
-        username: promptVersion.createdBy.username,
-        profile_image: promptVersion.createdBy.profile_image ? {
-          id: promptVersion.createdBy.profile_image.id
+      version_number: promptVersion.version_number,
+      content_snapshot: content,
+      commit_message: promptVersion.commit_message || promptVersion.description,
+      author: promptVersion.author || promptVersion.createdBy ? {
+        id: (promptVersion.author || promptVersion.createdBy)!.id,
+        username: (promptVersion.author || promptVersion.createdBy)!.username,
+        profile_image: (promptVersion.author || promptVersion.createdBy)!.profile_image ? {
+          id: (promptVersion.author || promptVersion.createdBy)!.profile_image!.id
         } : undefined
       } : undefined,
-      created_at: promptVersion.createdAt
+      created_at: promptVersion.created_at || promptVersion.createdAt || ''
     };
+  };
+
+  // Get content depending on what's available in the version
+  const getContent = (version: PromptVersion): string => {
+    if (typeof version.content === 'string') {
+      return version.content;
+    } 
+    if (typeof version.content_snapshot === 'string') {
+      return version.content_snapshot;
+    }
+    return '';
+  };
+
+  // Set edited content from version
+  const setContentFromVersion = (version: PromptVersion) => {
+    setEditedContent(getContent(version));
   };
 
   // Fetch prompt and its versions
@@ -107,32 +131,38 @@ const Prompt: React.FC = () => {
       
       try {
         setLoading(true);
-        // Replace with actual API call to get prompt data
+        setError(null);
+        
+        // Fetch prompt data
         const promptData = await PromptService.getPrompt(promptId);
         setPrompt(promptData);
         
         // Fetch versions
         const versionsData = await PromptService.getPromptVersions(promptId);
-        setVersions(versionsData);
+        setVersions(versionsData || []);
         
         // Set latest version as current
-        if (versionsData.length > 0) {
+        if (versionsData && versionsData.length > 0) {
           const latestVersion = versionsData.sort((a: PromptVersion, b: PromptVersion) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            new Date(b.created_at || b.createdAt || '').getTime() - 
+            new Date(a.created_at || a.createdAt || '').getTime()
           )[0];
-          setCurrentVersion(latestVersion);
-          setEditedContent(typeof latestVersion.content === 'string' ? latestVersion.content : '');
           
-          // Set parameters if available
-          if ('parameters' in latestVersion) {
+          setCurrentVersion(latestVersion);
+          setContentFromVersion(latestVersion);
+          
+          // Set parameters if available from metadata_json or direct parameters
+          const versionParams = latestVersion.metadata_json?.parameters || latestVersion.parameters;
+          if (versionParams) {
             setParameters({
               ...parameters,
-              ...(latestVersion.parameters as PromptParameters)
+              ...versionParams
             });
           }
         }
       } catch (error) {
         console.error('Error fetching prompt:', error);
+        setError('Failed to load prompt. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -150,13 +180,13 @@ const Prompt: React.FC = () => {
   const handleToggleEditMode = () => {
     if (editMode) {
       // Discard changes
-      if (currentVersion && typeof currentVersion.content === 'string') {
-        setEditedContent(currentVersion.content);
+      if (currentVersion) {
+        setContentFromVersion(currentVersion);
       }
     } else {
       // Enter edit mode
-      if (currentVersion && typeof currentVersion.content === 'string') {
-        setEditedContent(currentVersion.content);
+      if (currentVersion) {
+        setContentFromVersion(currentVersion);
       }
     }
     setEditMode(!editMode);
@@ -168,7 +198,9 @@ const Prompt: React.FC = () => {
     
     try {
       setLoading(true);
-      // Replace with actual API call to update prompt
+      setError(null);
+      
+      // Use the API to update the prompt
       const updatedVersion = await PromptService.updatePromptVersion(
         promptId, 
         currentVersion.id, 
@@ -179,16 +211,24 @@ const Prompt: React.FC = () => {
         }
       );
       
-      // Update versions list and current version
-      const updatedVersions = [updatedVersion, ...versions.filter(v => v.id !== updatedVersion.id)];
-      setVersions(updatedVersions);
-      setCurrentVersion(updatedVersion);
+      // After successful update, refresh data
+      const versionsData = await PromptService.getPromptVersions(promptId);
+      setVersions(versionsData);
+      
+      // Find the newest version (should be the one we just created)
+      const newVersion = versionsData.sort((a: PromptVersion, b: PromptVersion) => 
+        new Date(b.created_at || b.createdAt || '').getTime() - 
+        new Date(a.created_at || a.createdAt || '').getTime()
+      )[0];
+      
+      setCurrentVersion(newVersion);
       
       // Exit edit mode
       setEditMode(false);
       setCommitMessage('');
     } catch (error) {
       console.error('Error updating prompt:', error);
+      setError('Failed to update prompt. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -200,15 +240,14 @@ const Prompt: React.FC = () => {
     const selectedVersion = versions.find(v => v.id === version.id);
     if (selectedVersion) {
       setCurrentVersion(selectedVersion);
-      if (typeof selectedVersion.content === 'string') {
-        setEditedContent(selectedVersion.content);
-      }
+      setContentFromVersion(selectedVersion);
       
       // Update parameters if available
-      if ('parameters' in selectedVersion) {
+      const versionParams = selectedVersion.metadata_json?.parameters || selectedVersion.parameters;
+      if (versionParams) {
         setParameters({
           ...parameters,
-          ...(selectedVersion.parameters as PromptParameters)
+          ...versionParams
         });
       }
       
@@ -227,9 +266,21 @@ const Prompt: React.FC = () => {
 
   if (loading && !prompt) {
     return (
-      <Container maxWidth="lg">
+      <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', py: 10 }}>
           <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (error && !prompt) {
+    return (
+      <Container maxWidth="xl">
+        <Box sx={{ pt: 4, pb: 2 }} maxWidth="lg" mx="auto">
+          <Alert severity="error" sx={{ my: 4 }}>
+            {error}
+          </Alert>
         </Box>
       </Container>
     );
@@ -242,7 +293,7 @@ const Prompt: React.FC = () => {
   return (
     <Container maxWidth="xl">
       {/* Header area */}
-      <Box sx={{ pt: 4, pb: 2 }} maxWidth="lg">
+      <Box sx={{ pt: 4, pb: 2 }} maxWidth="lg" mx="auto">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
             {prompt?.title || 'Prompt'}
@@ -261,7 +312,7 @@ const Prompt: React.FC = () => {
       </Box>
       
       {/* Main content */}
-      <Paper sx={{ p: 3, borderRadius: 2 }}>
+      <Paper sx={{ p: 3, borderRadius: 2, maxWidth: "lg", mx: "auto" }}>
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
@@ -295,6 +346,10 @@ const Prompt: React.FC = () => {
                       }
                     }}
                     rows={12}
+                  />
+                  <PromptOptimizer 
+                    currentPrompt={editedContent} 
+                    onApplyOptimization={(optimizedPrompt) => setEditedContent(optimizedPrompt)} 
                   />
                   <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                     <TextField
@@ -331,26 +386,25 @@ const Prompt: React.FC = () => {
                   </Box>
                 </Box>
               ) : (
-                currentVersion && typeof currentVersion.content === 'string' && (
-                  <Box 
-                    sx={{ 
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      p: 2,
-                      minHeight: '300px',
-                      fontFamily: 'monospace',
-                      whiteSpace: 'pre-wrap',
-                      overflowX: 'auto'
-                    }}
-                  >
-                    {currentVersion.content}
-                  </Box>
-                )
+                <Box 
+                  sx={{ 
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    p: 2,
+                    minHeight: '300px',
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    overflowX: 'auto',
+                    bgcolor: 'background.paper'
+                  }}
+                >
+                  {currentVersion ? getContent(currentVersion) : "No prompt content available. Click the Edit button to add content."}
+                </Box>
               )}
             </Grid>
             
-            {/* Settings panel - make it narrower */}
+            {/* Settings panel - always visible */}
             <Grid item xs={12} md={3}>
               <Box sx={{ 
                 display: 'flex',

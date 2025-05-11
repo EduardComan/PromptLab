@@ -73,7 +73,45 @@ const Discover: React.FC = () => {
           throw new Error('Invalid response format from server');
         }
         
-        setItems(response.data.repositories || []);
+        // Fetch starred repositories to properly mark starred status
+        try {
+          if (user) {
+            const starredResponse = await api.get('/accounts/me/starred');
+            const starredRepoIds = new Set(
+              starredResponse.data.repositories?.map((repo: any) => repo.id) || []
+            );
+            
+            // Update repositories with correct starred status and format star counts
+            const updatedRepositories = response.data.repositories.map((repo: any) => {
+              // Handle star count from different possible sources in the API response
+              const starCount = 
+                repo.stars_count !== undefined ? repo.stars_count : 
+                repo.metrics?.stars !== undefined ? repo.metrics.stars :
+                repo._count?.stars !== undefined ? repo._count.stars : 
+                0;
+                
+              return {
+                ...repo,
+                isStarred: starredRepoIds.has(repo.id),
+                is_starred: starredRepoIds.has(repo.id),
+                stars_count: starCount,
+                star_count: starCount,
+                // Ensure _count exists for RepositoryCard compatibility
+                _count: { 
+                  ...(repo._count || {}),
+                  stars: starCount
+                }
+              };
+            });
+            
+            setItems(updatedRepositories);
+          } else {
+            setItems(response.data.repositories);
+          }
+        } catch (starError) {
+          console.error('Error fetching starred repos:', starError);
+          setItems(response.data.repositories);
+        }
       } else if (contentType === 'organizations') {
         // Use search endpoint if search is active, otherwise use popular
         const endpoint = isSearchActive && searchQuery
@@ -111,7 +149,7 @@ const Discover: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [contentType, searchQuery, sortBy, isSearchActive]);
+  }, [contentType, searchQuery, sortBy, isSearchActive, user]);
 
   useEffect(() => {
     // Reset search state when switching content types

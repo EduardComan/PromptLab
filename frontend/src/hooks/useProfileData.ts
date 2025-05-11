@@ -128,7 +128,11 @@ function mapRepo(repo: any): Repository {
     owner_org: repo.owner_org,
     isStarred: repo.isStarred || false,
     tags: repo.tags,
-    // Also add to _count for components that expect it there
+    prompt: repo.prompt || (repo.primaryPrompt ? {
+      id: repo.primaryPrompt.id,
+      title: repo.name, // Use repo name as fallback title
+      description: repo.description
+    } : undefined),
     _count: {
       ...(repo._count || {}),
       stars: starCount

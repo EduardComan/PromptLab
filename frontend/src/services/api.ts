@@ -10,6 +10,19 @@ const api = axios.create({
   timeout: 30000,
 });
 
+// Enable request debugging in development
+if (process.env.NODE_ENV === 'development') {
+  api.interceptors.request.use(request => {
+    console.log('API Request:', {
+      url: request.url,
+      method: request.method,
+      data: request.data,
+      headers: request.headers
+    });
+    return request;
+  });
+}
+
 // Event to notify authentication status changes
 export const authEvent = new EventTarget();
 
@@ -28,6 +41,14 @@ api.interceptors.request.use(
 // Add a response interceptor to handle common error scenarios
 api.interceptors.response.use(
   (response) => {
+    // Log successful responses in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Response:', {
+        url: response.config.url,
+        status: response.status,
+        data: response.data
+      });
+    }
     return response;
   },
   (error) => {
@@ -64,7 +85,8 @@ api.interceptors.response.use(
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
-        config: error.config
+        url: error.config?.url,
+        method: error.config?.method
       });
     }
     

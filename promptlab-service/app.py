@@ -177,6 +177,98 @@ def chat():
             }
         }), 500
 
+@app.route('/optimize-prompt', methods=['POST'])
+def optimize_prompt():
+    """Analyze and optimize a prompt using a lightweight model"""
+    start_time = time.time()
+    
+    try:
+        data = request.json
+        
+        # Validate required fields
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        if 'prompt' not in data:
+            return jsonify({'error': 'Prompt to optimize is required'}), 400
+        
+        # Get model (default to tinyllama if not specified)
+        model_name = data.get('model', 'tinyllama')
+        prompt = data['prompt']
+        target = data.get('target')  # Optional target goal
+        
+        # Get the model
+        model = get_model(model_name)
+        if not model:
+            return jsonify({'error': f'Model {model_name} not found or not available'}), 404
+        
+        # Check if it's a TinyLLM model with critique capability
+        if hasattr(model, 'critique_prompt'):
+            logger.info(f"Optimizing prompt with {model_name}")
+            result = model.critique_prompt(prompt, target)
+        else:
+            # Fallback to generate with a template for models without the special method
+            critique_template = f"""
+You are an expert at optimizing prompts for language models. Analyze this prompt and provide a critique:
+
+ORIGINAL PROMPT:
+{prompt}
+
+{f"TARGET GOAL: {target}" if target else ""}
+
+Your task:
+1. Critique the prompt (what works, what doesn't, unclear instructions, etc.)
+2. Suggest specific improvements 
+3. Provide an improved version
+
+Output your analysis in this format:
+CRITIQUE: [your critique]
+IMPROVEMENTS: [specific suggestions]
+IMPROVED PROMPT: [rewritten prompt]
+"""
+            parameters = {
+                "temperature": 0.3,
+                "max_tokens": 1024,
+                "top_p": 0.9
+            }
+            result = model.generate(critique_template, parameters)
+        
+        # Calculate metrics
+        end_time = time.time()
+        processing_time_ms = round((end_time - start_time) * 1000)
+        
+        # Prepare response
+        response = {
+            'status': 'success',
+            'optimization': result.get('output', ''),
+            'original_prompt': prompt,
+            'model': model_name,
+            'metrics': {
+                'processing_time_ms': processing_time_ms,
+                'tokens_input': result.get('tokens_input', 0),
+                'tokens_output': result.get('tokens_output', 0),
+                'total_tokens': result.get('tokens_input', 0) + result.get('tokens_output', 0)
+            },
+            'log': result.get('log', [])
+        }
+        
+        return jsonify(response)
+    
+    except Exception as e:
+        logger.exception(f"Error optimizing prompt: {str(e)}")
+        
+        # Calculate metrics even on failure
+        end_time = time.time()
+        processing_time_ms = round((end_time - start_time) * 1000)
+        
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'metrics': {
+                'processing_time_ms': processing_time_ms
+            }
+        }), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port) 

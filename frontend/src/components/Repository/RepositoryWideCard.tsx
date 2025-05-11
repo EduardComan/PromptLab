@@ -67,7 +67,7 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
   }, [repository.id, repository.isStarred, onStar]);
 
   const handleCardClick = (e: React.MouseEvent) => {
-    e.preventDefault();
+    // e.preventDefault();
     navigateToRepository(repository);
   };
 

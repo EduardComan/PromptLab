@@ -158,10 +158,6 @@ const Dashboard: React.FC = () => {
     setTabValue(newValue);
   }, []);
 
-  const handleRefresh = useCallback(() => {
-    fetchUserRepositories();
-  }, [fetchUserRepositories]);
-
   if (!user) {
     return (
       <Container maxWidth="lg">

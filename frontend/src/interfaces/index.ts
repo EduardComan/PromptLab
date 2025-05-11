@@ -146,28 +146,36 @@ export interface Prompt {
   id: string;
   title: string;
   description?: string;
-  format: 'TEXT' | 'CHAT';
-  repositoryId: string;
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
+  format?: 'TEXT' | 'CHAT';
+  repository_id: string;
+  created_at: string;
+  updated_at: string;
   repository?: Repository;
-  createdBy?: User;
   versions?: PromptVersion[];
-  latestVersion?: PromptVersion;
+  metadata_json?: any;
 }
 
 export interface PromptVersion {
   id: string;
-  promptId: string;
-  version: number;
-  content: string | ChatMessage[];
+  prompt_id: string;
+  version_number: number;
+  content?: string | ChatMessage[];
+  content_snapshot?: string | ChatMessage[];
+  commit_message?: string;
   description?: string;
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
+  author_id?: string;
+  created_at: string;
+  updated_at?: string;
+  createdAt?: string; // For backward compatibility
+  updatedAt?: string; // For backward compatibility
   prompt?: Prompt;
-  createdBy?: User;
+  author?: User;
+  createdBy?: User; // For backward compatibility
+  metadata_json?: {
+    parameters?: PromptParameters;
+    [key: string]: any;
+  };
+  parameters?: PromptParameters; // For backward compatibility
   runs?: PromptRun[];
 }
 

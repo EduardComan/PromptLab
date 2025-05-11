@@ -60,6 +60,13 @@ def load_models():
         model_registry["phi-3-mini"] = OpenAICompatibleModel("phi-3-mini")
         model_registry["gemma-7b"] = OpenAICompatibleModel("gemma-7b")
         
+        # Register tiny models for prompt optimization
+        from models.tiny_llm import TinyLLMModel
+        model_registry["tinyllama"] = TinyLLMModel("tinyllama")
+        model_registry["phi2"] = TinyLLMModel("phi2")
+        model_registry["stablelm-zephyr"] = TinyLLMModel("stablelm-zephyr")
+        model_registry["flan-t5-small"] = TinyLLMModel("flan-t5-small")
+        
     except Exception as e:
         logger.error(f"Error loading models: {str(e)}")
 
@@ -76,7 +83,8 @@ def available_models() -> List[Dict[str, Any]]:
                 "id": model_id,
                 "name": model_id.replace("-", " ").title(),
                 "default_parameters": model.get_default_parameters(),
-                "provider": model.__class__.__name__.replace("Model", "")
+                "provider": model.__class__.__name__.replace("Model", ""),
+                "size_category": "small" if "tiny" in model_id or "phi2" in model_id or "t5-small" in model_id else "medium"
             }
             models_info.append(model_info)
         except Exception as e:

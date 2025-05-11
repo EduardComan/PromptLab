@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
 import { useProfileData } from '../hooks/useProfileData';
 import RepositoryService from '../services/RepositoryService';
+import { useRepositoryNavigation } from '../hooks/useRepositoryNavigation';
 
 interface TabPanelProps {
   children?: React.ReactNode;
