@@ -43,10 +43,13 @@ const Navbar: React.FC<NavbarProps> = ({ onDrawerToggle }) => {
 
   const fetchNotificationCount = async () => {
     try {
-      const response = await api.get('/accounts/notifications/unread-count');
-      setNotificationsCount(response.data.count || 0);
+      // Check if the notifications endpoint is available
+      // const response = await api.get('/accounts/notifications/unread-count');
+      // setNotificationsCount(response.data.count || 0);
     } catch (error) {
-      console.error('Error fetching notification count:', error);
+      // Silently fail if the endpoint doesn't exist
+      console.log('Notifications feature not available');
+      setNotificationsCount(0);
     }
   };
 
