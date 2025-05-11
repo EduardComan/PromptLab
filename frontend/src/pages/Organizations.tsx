@@ -107,15 +107,16 @@ const Organizations: React.FC = () => {
           alignItems: 'center'
         }}
       >
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{
-            fontWeight: 700,
-          }}
-        >
-          Organizations
+      
+      <Box>
+        <Typography variant="h4" component="h1" fontWeight="bold">
+          Create New Organization
         </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 3 }}>
+          Manage prompts as a team with organizations
+        </Typography>
+      </Box>
+
         {user && (
           <Button
             variant="contained"

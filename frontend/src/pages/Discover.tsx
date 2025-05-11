@@ -7,151 +7,115 @@ import {
   CircularProgress,
   TextField,
   InputAdornment,
+  Card,
+  CardContent,
+  Avatar,
+  Chip,
   Grid,
   Button,
+  IconButton,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Alert,
-  Pagination
+  MenuItem
 } from '@mui/material';
 import {
   TrendingUp as TrendingIcon,
   Search as SearchIcon,
-  Sort as SortIcon,
-  Business as BusinessIcon
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  Person as PersonIcon,
+  Sort as SortIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
-import RepositoryService from '../services/RepositoryService';
-import { Repository, Organization } from '../interfaces';
+
+interface Repository {
+  id: string;
+  name: string;
+  description: string;
+  star_count: number;
+  stars_count: number;
+  is_starred: boolean;
+  isStarred: boolean;
+  created_at: string;
+  owner: {
+    id: string;
+    name: string;
+    display_name: string;
+    profile_image_id?: string;
+  };
+  owner_user?: {
+    id: string;
+    username: string;
+    profile_image_id?: string;
+  };
+}
 
 const Discover: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState('created_at');
+  const [sortBy, setSortBy] = useState('stars');
   const [contentType, setContentType] = useState('repositories');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 10;
 
-  const fetchRepositories = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Use trending endpoint for repositories - this matches the existing backend API
-      const response = await api.get('/repositories/trending', {
-        params: { 
-          limit: ITEMS_PER_PAGE
+      if (contentType === 'repositories') {
+        // Use the correct trending endpoint
+        console.log('Fetching trending repositories');
+        const response = await api.get('/repositories/trending', {
+          params: { 
+            limit: 20
+          }
+        });
+        
+        console.log('Trending repositories response:', response.data);
+        
+        if (!response.data || !response.data.repositories) {
+          throw new Error('Invalid response format from server');
         }
-      });
-      
-      setRepositories(response.data.repositories || []);
-      setTotalPages(1); // No pagination available for trending endpoint
+        
+        setRepositories(response.data.repositories || []);
+      } else if (contentType === 'organizations') {
+        // Use the correct organizations endpoint
+        console.log('Fetching popular organizations');
+        const response = await api.get('/organizations/popular', {
+          params: { 
+            limit: 20
+          }
+        });
+        
+        console.log('Popular organizations response:', response.data);
+        
+        if (!response.data || !response.data.organizations) {
+          throw new Error('Invalid response format from server');
+        }
+        
+        setRepositories(response.data.organizations || []);
+      }
     } catch (error) {
-      console.error('Error fetching repositories:', error);
-      setError('Failed to load repositories. Please try again later.');
+      console.error(`Error fetching ${contentType}:`, error);
+      setError(`Failed to load ${contentType}. Please try again later.`);
       setRepositories([]);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const fetchOrganizations = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Use the popular organizations endpoint - this matches the existing backend API
-      const response = await api.get('/organizations/popular', {
-        params: { 
-          limit: ITEMS_PER_PAGE
-        }
-      });
-      
-      setOrganizations(response.data.organizations || []);
-      setTotalPages(1); // No pagination available for popular endpoint
-    } catch (error) {
-      console.error('Error fetching organizations:', error);
-      setError('Failed to load organizations. Please try again later.');
-      setOrganizations([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }, [contentType]);
 
   useEffect(() => {
-    if (contentType === 'repositories') {
-      fetchRepositories();
-    } else {
-      fetchOrganizations();
-    }
-  }, [contentType, fetchRepositories, fetchOrganizations]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery) {
-      // If search query is empty, fetch normal data
-      if (contentType === 'repositories') {
-        fetchRepositories();
-      } else {
-        fetchOrganizations();
-      }
-      return;
-    }
-
-    // Handle search
-    setLoading(true);
-    setError(null);
-
-    if (contentType === 'repositories') {
-      // Search repositories - assuming a search endpoint exists
-      api.get('/repositories', {
-        params: { 
-          search: searchQuery,
-          limit: ITEMS_PER_PAGE
-        }
-      })
-      .then(response => {
-        setRepositories(response.data.repositories || []);
-        setTotalPages(Math.ceil((response.data.pagination?.total || 0) / ITEMS_PER_PAGE) || 1);
-      })
-      .catch(error => {
-        console.error('Error searching repositories:', error);
-        setError('Failed to search repositories. Please try again.');
-        setRepositories([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-    } else {
-      // Search organizations using the search endpoint
-      api.get('/organizations', {
-        params: { 
-          query: searchQuery,
-          limit: ITEMS_PER_PAGE
-        }
-      })
-      .then(response => {
-        setOrganizations(response.data.organizations || []);
-        setTotalPages(Math.ceil((response.data.pagination?.total || 0) / ITEMS_PER_PAGE) || 1);
-      })
-      .catch(error => {
-        console.error('Error searching organizations:', error);
-        setError('Failed to search organizations. Please try again.');
-        setOrganizations([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-    }
+    fetchData();
   };
 
   const handleStarRepo = async (repoId: string, isStarred: boolean) => {
@@ -161,35 +125,52 @@ const Discover: React.FC = () => {
     }
     
     try {
+      // Update UI immediately for better user experience
+      setRepositories(prev => 
+        prev.map(repo => {
+          if (repo.id === repoId) {
+            const starCount = (repo.stars_count !== undefined ? repo.stars_count : repo.star_count || 0);
+            return { 
+              ...repo, 
+              isStarred: !isStarred,
+              is_starred: !isStarred,
+              stars_count: isStarred ? starCount - 1 : starCount + 1,
+              star_count: isStarred ? starCount - 1 : starCount + 1
+            };
+          }
+          return repo;
+        })
+      );
+      
+      // Call the appropriate service method
       if (isStarred) {
-        await RepositoryService.unstarRepository(repoId);
+        await api.delete(`/repositories/${repoId}/star`);
       } else {
-        await RepositoryService.starRepository(repoId);
+        await api.post(`/repositories/${repoId}/star`);
       }
       
-      // Refresh the repositories data
-      fetchRepositories();
+      // No need to refresh data immediately as we've already updated UI
+      // This avoids potential flickering and provides a smooth user experience
     } catch (error) {
-      console.error('Error updating repository star:', error);
-      setError('Failed to update star status. Please try again.');
+      console.error('Error starring repository:', error);
+      
+      // Refresh data only in case of error to restore the correct state
+      await fetchData();
     }
-  };
-
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
   };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Header Section */}
-      <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Typography variant="h4" component="h1" fontWeight={700} gutterBottom>
-          PromptHub Community
+
+      <Box>
+        <Typography variant="h4" component="h1" fontWeight="bold">
+          PromptLab Community
         </Typography>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 3, mb: 4 }}>
           Explore the community's repositories, organizations, and more!
         </Typography>
-      </Paper>
+      </Box>
 
       {/* Search and Filter Section */}
       <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
@@ -231,7 +212,7 @@ const Discover: React.FC = () => {
               variant={contentType === 'repositories' ? "contained" : "outlined"}
               onClick={() => {
                 setContentType('repositories');
-                setPage(1);
+                setSortBy('stars');
               }}
             >
               Repositories
@@ -240,178 +221,185 @@ const Discover: React.FC = () => {
               variant={contentType === 'organizations' ? "contained" : "outlined"}
               onClick={() => {
                 setContentType('organizations');
-                setPage(1);
+                setSortBy('name');
               }}
             >
               Organizations
             </Button>
           </Box>
+          
+          <FormControl size="small" variant="outlined" sx={{ minWidth: 180 }}>
+            <InputLabel>Sort By</InputLabel>
+            <Select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              label="Sort By"
+              startAdornment={<SortIcon fontSize="small" sx={{ mr: 1 }} />}
+            >
+              {contentType === 'repositories' && (
+                <>
+                  <MenuItem value="stars">Most stars</MenuItem>
+                  <MenuItem value="created_at">Newest</MenuItem>
+                  <MenuItem value="name">Alphabetical</MenuItem>
+                </>
+              )}
+              {contentType === 'organizations' && (
+                <>
+                  <MenuItem value="name">Alphabetical</MenuItem>
+                  <MenuItem value="created_at">Newest</MenuItem>
+                </>
+              )}
+            </Select>
+          </FormControl>
         </Box>
       </Paper>
 
       {/* Content Section */}
       <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
         <Typography variant="h5" component="h2" fontWeight={600} sx={{ mb: 3 }}>
-          {contentType === 'repositories' ? 'Trending Repositories' : 'Popular Organizations'}
+          {contentType === 'repositories' ? 'Popular Repositories' : 'Active Organizations'}
         </Typography>
 
-        {/* Error state */}
-        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-
-        {/* Loading state */}
+        {/* Repository/Organization Cards */}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : (
           <Box>
-            {/* Empty state */}
-            {(contentType === 'repositories' && repositories.length === 0) || 
-             (contentType === 'organizations' && organizations.length === 0) ? (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                No {contentType} found. {searchQuery && "Try adjusting your search criteria."}
-              </Alert>
+            {repositories.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" color="text.secondary">
+                  No items found matching your criteria
+                </Typography>
+              </Box>
             ) : (
-              <>
-                {/* Repository Cards Grid */}
-                {contentType === 'repositories' && (
-                  <Grid container spacing={3}>
-                    {repositories.map((repo) => (
-                      <Grid item xs={12} md={6} key={repo.id}>
-                        <RepositoryWideCard
-                          repository={repo}
-                          onStar={handleStarRepo}
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
-
-                {/* Organization Cards Grid */}
-                {contentType === 'organizations' && (
-                  <Grid container spacing={3}>
-                    {organizations.map((org) => (
-                      <Grid item xs={12} sm={6} md={4} key={org.id}>
-                        <Paper
-                          elevation={1}
-                          sx={{ 
-                            height: '100%', 
-                            display: 'flex', 
-                            flexDirection: 'column',
-                            transition: 'transform 0.2s, box-shadow 0.2s',
-                            overflow: 'hidden',
-                            borderRadius: 2,
-                            '&:hover': {
-                              transform: 'translateY(-5px)',
-                              boxShadow: '0 10px 20px rgba(0,0,0,0.1)',
+              <Grid container spacing={3}>
+                {repositories.map((repo) => (
+                  <Grid item xs={12} md={6} key={repo.id}>
+                    <Card 
+                      sx={{ 
+                        height: '100%',
+                        borderRadius: 2,
+                        border: '1px solid #eaeaea',
+                        boxShadow: 'none',
+                        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 6px 12px rgba(0,0,0,0.1)'
+                        }
+                      }}
+                    >
+                      <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                          <Avatar 
+                            src={
+                              (repo.owner?.profile_image_id ? 
+                                `/api/images/${repo.owner.profile_image_id}` : 
+                                repo.owner_user?.profile_image_id ? 
+                                  `/api/accounts/profile-image/${repo.owner_user.profile_image_id}` : 
+                                  undefined)
                             }
-                          }}
-                        >
-                          <Box sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                            {/* Organization Header */}
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                              <Box 
-                                component="img"
-                                src={org.logo_image_id ? `/api/organizations/logo/${org.logo_image_id}` : undefined}
-                                alt={org.display_name}
-                                sx={{ 
-                                  width: 56, 
-                                  height: 56,
-                                  borderRadius: '50%',
-                                  marginRight: 2,
-                                  bgcolor: 'primary.main',
-                                  display: org.logo_image_id ? 'block' : 'none'
-                                }}
-                              />
-                              {!org.logo_image_id && (
-                                <Box 
-                                  sx={{ 
-                                    width: 56, 
-                                    height: 56,
-                                    borderRadius: '50%',
-                                    marginRight: 2,
-                                    bgcolor: 'primary.main',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                  }}
-                                >
-                                  <BusinessIcon sx={{ color: 'white' }} />
-                                </Box>
-                              )}
-                              <Box>
-                                <Typography 
-                                  variant="h6"
-                                  component="a"
-                                  href={`/organizations/${org.name}`}
-                                  sx={{ 
-                                    textDecoration: 'none', 
-                                    color: 'inherit',
-                                    display: 'block',
-                                    '&:hover': { color: 'primary.main' } 
-                                  }}
-                                >
-                                  {org.display_name}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  @{org.name}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            
-                            <Typography variant="body2" sx={{ mb: 2, minHeight: '40px' }}>
-                              {org.description?.substring(0, 100) || 'No description'}
-                              {(org.description?.length || 0) > 100 ? '...' : ''}
+                            alt={repo.owner?.display_name || repo.owner_user?.username || ''}
+                            sx={{ width: 40, height: 40, mr: 2 }}
+                          >
+                            {(repo.owner?.display_name?.[0]?.toUpperCase() || 
+                              repo.owner_user?.username?.[0]?.toUpperCase() || 
+                              <PersonIcon />)
+                            }
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography 
+                              variant="h6" 
+                              component={Link}
+                              to={contentType === 'repositories' ? 
+                                `/repositories/${repo.id}` : 
+                                `/organizations/${repo.owner?.name || repo.name}`
+                              }
+                              sx={{ 
+                                fontWeight: 600, 
+                                color: 'text.primary',
+                                textDecoration: 'none',
+                                '&:hover': { color: 'primary.main' },
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {repo.name}
                             </Typography>
                             
-                            <Box sx={{ 
-                              display: 'flex', 
-                              justifyContent: 'space-between',
-                              alignItems: 'center', 
-                              mt: 'auto',
-                              flexWrap: 'wrap'
-                            }}>
-                              <Typography variant="body2" color="text.secondary">
-                                {org.member_count || 0} members
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary"
+                              component={Link}
+                              to={repo.owner_user ? 
+                                `/profile/${repo.owner_user.username}` : 
+                                repo.owner ? 
+                                  `/organizations/${repo.owner.name}` : 
+                                  '#'
+                              }
+                              sx={{ 
+                                textDecoration: 'none',
+                                '&:hover': { textDecoration: 'underline' }
+                              }}
+                            >
+                              {repo.owner?.display_name || repo.owner_user?.username || ''}
+                            </Typography>
+                          </Box>
+                          
+                          {contentType === 'repositories' && user && (
+                            <IconButton 
+                              onClick={() => handleStarRepo(
+                                repo.id, 
+                                repo.isStarred !== undefined ? repo.isStarred : (repo.is_starred || false)
+                              )}
+                              size="small"
+                              color="primary"
+                              aria-label={
+                                (repo.isStarred || repo.is_starred) ? "Unstar repository" : "Star repository"
+                              }
+                            >
+                              {(repo.isStarred || repo.is_starred) ? (
+                                <StarIcon fontSize="small" sx={{ color: '#f1c40f' }} />
+                              ) : (
+                                <StarBorderIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          )}
+                        </Box>
+                        
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary"
+                          sx={{ 
+                            mb: 2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}
+                        >
+                          {repo.description || 'No description provided'}
+                        </Typography>
+                        
+                        {contentType === 'repositories' && (
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <StarIcon fontSize="small" sx={{ color: '#f1c40f', mr: 0.5 }} />
+                              <Typography variant="body2">
+                                {repo.stars_count !== undefined ? repo.stars_count : (repo.star_count || 0)}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {org.repository_count || 0} repos
-                              </Typography>
-                            </Box>
-                            
-                            <Box sx={{ 
-                              display: 'flex', 
-                              justifyContent: 'center',
-                              mt: 2
-                            }}>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                href={`/organizations/${org.name}`}
-                                fullWidth
-                              >
-                                View Organization
-                              </Button>
                             </Box>
                           </Box>
-                        </Paper>
-                      </Grid>
-                    ))}
+                        )}
+                      </CardContent>
+                    </Card>
                   </Grid>
-                )}
-
-                {/* Pagination - only show if there's more than one page */}
-                {totalPages > 1 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                    <Pagination 
-                      count={totalPages}
-                      page={page}
-                      onChange={handlePageChange}
-                      color="primary"
-                    />
-                  </Box>
-                )}
-              </>
+                ))}
+              </Grid>
             )}
           </Box>
         )}

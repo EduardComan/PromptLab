@@ -66,6 +66,10 @@ export interface OrganizationMember {
   user?: User;
   organization?: Organization;
   joined_at: string;
+  username?: string;
+  email?: string;
+  full_name?: string;
+  profile_image_id?: string;
 }
 
 // Repository interfaces

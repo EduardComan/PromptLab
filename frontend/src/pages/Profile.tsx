@@ -102,39 +102,60 @@ const Profile: React.FC = () => {
       <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, mb: 4 }}>
           <Box sx={{ width: { xs: '100%', md: '30%' }, maxWidth: 320, mx: { xs: 'auto', md: 0 } }}>
-            <Avatar
-              src={profile.profile_image_id ? `/api/accounts/profile-image/${profile.profile_image_id}` : profile.picture_url || undefined}
-              alt={profile.username}
-              sx={{ width: 130, height: 130, mb: 2 }}
-            >{profile.username[0].toUpperCase()}</Avatar>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Avatar
+                src={profile.profile_image_id ? `/api/accounts/profile-image/${profile.profile_image_id}` : profile.picture_url || undefined}
+                alt={profile.username}
+                sx={{ width: 130, height: 130, mb: 2 }}
+              >{profile.username[0].toUpperCase()}</Avatar>
 
-            {isAuthenticated && (!username || username === user?.username) && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                component={Link}
-                to="/profile/edit"
-                size="small"
-                sx={{ mb: 3 }}
-              >Edit Profile</Button>
-            )}
+              {isAuthenticated && (!username || username === user?.username) && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  component={Link}
+                  to="/profile/edit"
+                  size="small"
+                  sx={{ mt: 2, mb: 3 }}
+                >Edit Profile</Button>
+              )}
+            </Box>
 
             <Typography variant="h4" fontWeight="bold">{profile.full_name || profile.username}</Typography>
             <Typography variant="body1" color="text.secondary">@{profile.username}</Typography>
-            <Typography variant="body1" sx={{ mt: 2, mb: 3 }}>{profile.bio || 'No bio provided'}</Typography>
+            
+            <Box sx={{ mt: 3, mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Description
+              </Typography>
+              <Typography variant="body1">
+                {profile.bio || 'No bio provided'}
+              </Typography>
+            </Box>
 
             <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>Organizations</Typography>
-            {organizations.length > 0 ? (
-              <AvatarGroup max={6}>
-                {organizations.map(org => (
-                  <Tooltip key={org.id} title={org.name}>
-                    <Avatar component={Link} to="/organizations" src={org.logo_image_id ? `/api/images/${org.logo_image_id}` : undefined}>{org.name[0]}</Avatar>
-                  </Tooltip>
-                ))}
-              </AvatarGroup>
-            ) : (
-              <Typography variant="body2" color="text.secondary">No organizations</Typography>
-            )}
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              {organizations.length > 0 ? (
+                <AvatarGroup max={6}>
+                  {organizations.map(org => (
+                    <Tooltip key={org.id} title={org.name}>
+                      <Avatar
+                        component={Link}
+                        to={`/organizations/${org.name}`}
+                        src={org.logo_image_id ? `/api/images/${org.logo_image_id}` : undefined}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        {org.name[0]}
+                      </Avatar>
+                    </Tooltip>
+                  ))}
+                </AvatarGroup>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No organizations
+                </Typography>
+              )}
+            </Box>
           </Box>
 
           <Box sx={{ flexGrow: 1 }}>

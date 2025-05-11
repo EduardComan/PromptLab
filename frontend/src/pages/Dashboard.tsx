@@ -167,14 +167,6 @@ const Dashboard: React.FC = () => {
           <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
             My Dashboard
           </Typography>
-          <Button 
-            startIcon={<RefreshIcon />} 
-            onClick={handleRefresh}
-            disabled={loading}
-            size="small"
-          >
-            Refresh
-          </Button>
         </Box>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           Manage your repositories and see your starred content

@@ -15,7 +15,10 @@ import {
   Grid,
   Divider,
   FormHelperText,
-  Alert
+  Alert,
+  Select,
+  SelectChangeEvent,
+  InputLabel
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -54,11 +57,12 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
   const [organizationId, setOrganizationId] = useState(initialOrgId || '');
   
   // Form validation and state
-  const [nameError, setNameError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orgsLoading, setOrgsLoading] = useState(true);
+  const [success, setSuccess] = useState(false);
   
   // Fetch organizations the user belongs to
   useEffect(() => {
@@ -121,29 +125,54 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
       fetchRepository();
     }
   }, [editMode, repositoryId]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    
+    if (name === 'name') {
+      setName(value);
+      // Clear validation error when user types
+      if (validationErrors.name) {
+        setValidationErrors(prev => ({
+          ...prev,
+          name: ''
+        }));
+      }
+    } else if (name === 'description') {
+      setDescription(value);
+      // Clear validation error when user types
+      if (validationErrors.description) {
+        setValidationErrors(prev => ({
+          ...prev,
+          description: ''
+        }));
+      }
+    } else if (name === 'isPublic') {
+      setIsPublic(checked);
+    }
+  };
   
   const validateForm = () => {
+    const errors: {[key: string]: string} = {};
     let isValid = true;
     
     // Validate name
     if (!name.trim()) {
-      setNameError('Repository name is required');
+      errors.name = 'Repository name is required';
       isValid = false;
     } else if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-      setNameError('Repository name can only contain letters, numbers, hyphens and underscores');
+      errors.name = 'Repository name can only contain letters, numbers, hyphens and underscores';
       isValid = false;
-    } else {
-      setNameError('');
     }
     
     // Validate organization selection if owner type is organization
     if (ownerType === 'organization' && !organizationId) {
-      setError('Please select an organization');
+      errors.organizationId = 'Please select an organization';
       isValid = false;
-    } else {
-      setError(null);
     }
     
+    setValidationErrors(errors);
+    setError(null);
     return isValid;
   };
   
@@ -168,11 +197,16 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
         
         console.log('Updating repository with data:', updateData);
         await RepositoryService.updateRepository(repositoryId, updateData);
-        navigate(`/repositories/${repositoryId}`);
+        
+        setSuccess(true);
+        setTimeout(() => {
+          navigate(`/repositories/${repositoryId}`);
+        }, 1000);
       } else {
         // Create new repository with default prompt
         const defaultPromptTitle = `${name}-Prompt`;
         
+        // Prepare data in the exact format expected by the backend
         const createData = {
           name,
           description,
@@ -184,31 +218,48 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
         };
         
         console.log('Creating repository with data:', createData);
-        const result = await RepositoryService.createRepository(createData);
-        console.log('Repository creation result:', result);
         
-        // Navigate to the new repository - different APIs might return different structures
-        if (result && result.repository && result.repository.id) {
-          navigate(`/repositories/${result.repository.id}`);
-        } else if (result && result.id) {
-          navigate(`/repositories/${result.id}`);
-        } else {
-          throw new Error('Repository creation failed, no repository ID returned');
+        try {
+          const result = await RepositoryService.createRepository(createData);
+          console.log('Repository creation result:', result);
+          
+          setSuccess(true);
+          
+          // Navigate to the new repository after a short delay
+          setTimeout(() => {
+            if (result && result.repository && result.repository.id) {
+              navigate(`/repositories/${result.repository.id}`);
+            } else if (result && result.id) {
+              navigate(`/repositories/${result.id}`);
+            } else {
+              throw new Error('Repository creation failed, no repository ID returned');
+            }
+          }, 1000);
+        } catch (createError: any) {
+          console.error('Repository creation error:', createError);
+          if (createError.response?.data?.message) {
+            setError(createError.response.data.message);
+          } else {
+            setError('Failed to create repository. Please try again.');
+          }
         }
       }
     } catch (err: any) {
       console.error('Error with repository:', err);
+      setIsSubmitting(false);
       
       // Handle different error responses
       if (err.response?.data?.errors) {
         // Validation errors
-        const validationErrors = err.response.data.errors;
-        if (validationErrors.name) {
-          setNameError(validationErrors.name);
-        }
+        const backendErrors = err.response.data.errors;
+        const formattedErrors: {[key: string]: string} = {};
         
-        // Set general error message
-        setError(err.response?.data?.message || 'Validation failed. Please check your inputs.');
+        Object.keys(backendErrors).forEach(key => {
+          formattedErrors[key] = backendErrors[key];
+        });
+        
+        setValidationErrors(formattedErrors);
+        setError('Validation failed. Please check your inputs.');
       } else if (err.response?.data?.message) {
         // API returned error message
         setError(err.response.data.message);
@@ -216,7 +267,7 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
         // Generic error
         setError(err.message || 'Failed to process repository');
       }
-      
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -231,13 +282,19 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
   
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" component="h1" gutterBottom>
-        {editMode ? 'Edit Repository' : 'Create New Repository'}
+      <Typography variant="h5" component="h1" gutterBottom sx={{mb:2}}>
+        {editMode ? 'Edit Repository' : 'New Repository Details'}
       </Typography>
       
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+      
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Repository {editMode ? 'updated' : 'created'} successfully! Redirecting...
         </Alert>
       )}
       
@@ -249,64 +306,53 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
                 Owner
               </Typography>
               <RadioGroup
-                row
+                aria-label="repository-owner"
+                name="ownerType"
                 value={ownerType}
-                onChange={(e) => {
-                  setOwnerType(e.target.value as 'user' | 'organization');
-                  // Reset organization ID if switching to user
-                  if (e.target.value === 'user') {
-                    setOrganizationId('');
-                  }
-                }}
+                onChange={(e) => setOwnerType(e.target.value as 'user' | 'organization')}
+                row
               >
-                <FormControlLabel 
-                  value="user" 
-                  control={<Radio />} 
-                  label={`Personal`} 
+                <FormControlLabel
+                  value="user"
+                  control={<Radio />}
+                  label={`Personal (${user?.username})`}
                   disabled={isSubmitting}
                 />
-                <FormControlLabel 
-                  value="organization" 
-                  control={<Radio />} 
-                  label="Organization" 
-                  disabled={orgsLoading || organizations.length === 0 || isSubmitting}
+                <FormControlLabel
+                  value="organization"
+                  control={<Radio />}
+                  label="Organization"
+                  disabled={isSubmitting || organizations.length === 0}
                 />
               </RadioGroup>
-              
               {ownerType === 'organization' && (
-                <FormControl fullWidth sx={{ mt: 1 }}>
-                  {orgsLoading ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
-                      <CircularProgress size={20} />
-                      <Typography variant="body2">Loading your organizations...</Typography>
-                    </Box>
-                  ) : organizations.length > 0 ? (
-                    <TextField
-                      select
-                      label="Select Organization"
-                      value={organizationId}
-                      onChange={(e) => setOrganizationId(e.target.value)}
-                      required
-                      disabled={isSubmitting}
-                    >
-                      {organizations.map((org) => (
-                        <MenuItem key={org.id} value={org.id}>
-                          {org.display_name || org.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  ) : (
-                    <Alert severity="info">
-                      You don't belong to any organizations. 
-                      <Button 
-                        component="a" 
-                        href="/organizations/new" 
-                        size="small" 
-                        sx={{ ml: 1 }}
-                      >
-                        Create one
-                      </Button>
-                    </Alert>
+                <FormControl fullWidth error={!!validationErrors.organizationId} sx={{ mt: 2 }}>
+                  <InputLabel id="org-select-label">Select Organization</InputLabel>
+                  <Select
+                    labelId="org-select-label"
+                    id="org-select"
+                    value={organizationId}
+                    onChange={(e: SelectChangeEvent) => {
+                      setOrganizationId(e.target.value);
+                      // Clear validation error
+                      if (validationErrors.organizationId) {
+                        setValidationErrors(prev => ({
+                          ...prev,
+                          organizationId: ''
+                        }));
+                      }
+                    }}
+                    label="Select Organization"
+                    disabled={isSubmitting || orgsLoading}
+                  >
+                    {organizations.map((org) => (
+                      <MenuItem key={org.id} value={org.id}>
+                        {org.display_name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {validationErrors.organizationId && (
+                    <FormHelperText>{validationErrors.organizationId}</FormHelperText>
                   )}
                 </FormControl>
               )}
@@ -314,30 +360,39 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
           </Grid>
           
           <Grid item xs={12}>
-            <Divider />
+            <Divider sx={{ mb: 1 }} />
           </Grid>
           
           <Grid item xs={12}>
             <TextField
-              fullWidth
               label="Repository Name"
+              name="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              error={!!nameError}
-              helperText={nameError || 'Use only letters, numbers, hyphens and underscores'}
+              onChange={handleInputChange}
+              fullWidth
               required
-              disabled={editMode || isSubmitting}
+              error={!!validationErrors.name}
+              helperText={validationErrors.name || "Letters, numbers, hyphens and underscores only"}
+              disabled={isSubmitting}
+              placeholder="my-repository"
+              inputProps={{
+                pattern: "[a-zA-Z0-9_-]+",
+                title: "Letters, numbers, hyphens and underscores only"
+              }}
             />
           </Grid>
           
           <Grid item xs={12}>
             <TextField
-              fullWidth
-              label="Description (optional)"
+              label="Description"
+              name="description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={handleInputChange}
+              fullWidth
               multiline
               rows={3}
+              error={!!validationErrors.description}
+              helperText={validationErrors.description || "Briefly describe your repository"}
               disabled={isSubmitting}
             />
           </Grid>
@@ -345,56 +400,46 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
           <Grid item xs={12}>
             <FormControlLabel
               control={
-                <Switch 
+                <Switch
                   checked={isPublic}
                   onChange={(e) => setIsPublic(e.target.checked)}
+                  name="isPublic"
                   color="primary"
                   disabled={isSubmitting}
                 />
               }
-              label="Public repository"
+              label={
+                <Box>
+                  <Typography variant="body1">
+                    {isPublic ? 'Public' : 'Private'} Repository
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {isPublic 
+                      ? 'Anyone can see this repository. You choose who can contribute.' 
+                      : 'You choose who can see and contribute to this repository.'}
+                  </Typography>
+                </Box>
+              }
             />
-            <FormHelperText>
-              {isPublic 
-                ? 'Everyone can see this repository, but only you and collaborators can make changes.' 
-                : 'You choose who can see and contribute to this repository.'}
-            </FormHelperText>
           </Grid>
           
-          {!editMode && (
-            <>
-              <Grid item xs={12}>
-                <Divider />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  A default prompt named "{name ? `${name}-Prompt` : 'Repository-Prompt'}" will be created automatically.
-                </Alert>
-              </Grid>
-            </>
-          )}
-          
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-              <Button 
-                variant="outlined" 
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 2 }}>
+              <Button
+                variant="outlined"
                 onClick={() => navigate(-1)}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                variant="contained" 
+              <Button
+                type="submit"
+                variant="contained"
                 color="primary"
                 disabled={isSubmitting}
+                startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
               >
-                {isSubmitting ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  editMode ? 'Update Repository' : 'Create Repository'
-                )}
+                {isSubmitting ? 'Processing...' : editMode ? 'Update Repository' : 'Create Repository'}
               </Button>
             </Box>
           </Grid>

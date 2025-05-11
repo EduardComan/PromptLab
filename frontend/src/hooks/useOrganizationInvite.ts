@@ -23,11 +23,11 @@ export const useOrganizationInvite = (): UseOrganizationInvite => {
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
 
   const handleInviteUser = async () => {
-    if (!organization?.id || !inviteEmail.trim()) return;
+    if (!organization?.name || !inviteEmail.trim()) return;
     setInviteLoading(true);
     setInviteError(null);
     try {
-      await api.post(`/organizations/${organization.id}/invite`, {
+      await api.post(`/organizations/${organization.name}/invite`, {
         email: inviteEmail.trim(),
         role: inviteRole
       });

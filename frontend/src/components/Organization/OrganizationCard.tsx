@@ -44,7 +44,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization }) => 
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/organizations/${organization.id}`);
+    navigate(`/organizations/${organization.name}`);
   };
 
   return (

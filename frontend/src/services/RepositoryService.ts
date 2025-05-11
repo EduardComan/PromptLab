@@ -27,34 +27,33 @@ export class RepositoryService {
     default_prompt_content?: string;
   }): Promise<any> {
     try {
-      // Format the data as expected by the API - use snake_case for backend
+      // Format the data as exactly expected by the backend API
       const requestData: any = {
         name: data.name,
         description: data.description || '',
-        is_public: data.isPublic, // Snake case for backend
-        default_prompt_title: data.default_prompt_title || `${data.name}-Prompt`,
-        default_prompt_content: data.default_prompt_content || ''
+        is_public: data.isPublic
       };
 
       // Add org_id only if ownerType is 'organization' and orgId is provided
       if (data.ownerType === 'organization' && data.orgId) {
-        requestData.org_id = data.orgId; // Snake case for backend
+        requestData.org_id = data.orgId;
+      }
+      
+      // Add default prompt information if provided
+      if (data.default_prompt_title) {
+        requestData.default_prompt_title = data.default_prompt_title;
+        requestData.default_prompt_content = data.default_prompt_content || '';
       }
       
       // Debug the request data before sending
-      console.log('Repository creation request data:', requestData);
+      console.log('Repository creation request data:', JSON.stringify(requestData, null, 2));
       
-      try {
-        const response = await api.post('/repositories', requestData);
-        console.log('Repository creation successful response:', response.data);
-        return response.data;
-      } catch (error: any) {
-        console.error('Repository creation error response:', error.response?.data);
-        console.error('Repository creation error status:', error.response?.status);
-        throw error;
-      }
-    } catch (error) {
-      console.error('Error creating repository:', error);
+      const response = await api.post('/repositories', requestData);
+      console.log('Repository creation successful response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Repository creation error response:', error.response?.data);
+      console.error('Repository creation error status:', error.response?.status);
       throw error;
     }
   }
@@ -75,6 +74,8 @@ export class RepositoryService {
       if (data.name !== undefined) requestData.name = data.name;
       if (data.description !== undefined) requestData.description = data.description;
       if (data.isPublic !== undefined) requestData.is_public = data.isPublic; // Snake case for backend
+      
+      console.log('Repository update request data:', JSON.stringify(requestData, null, 2));
       
       const response = await api.put(`/repositories/${id}`, requestData);
       return response.data;
@@ -121,7 +122,7 @@ export class RepositoryService {
     
     try {
       // Use the correct endpoint based on backend route
-      const response = await api.delete(`/repositories/${id}/unstar`);
+      const response = await api.delete(`/repositories/${id}/star`);
       console.log(`Repository unstarred successfully, stars:`, response.data);
       return {
         stars: response.data.stars || 0
@@ -157,8 +158,7 @@ export class RepositoryService {
     try {
       const response = await api.get(`/repositories/trending`, {
         params: { 
-          limit: limit,
-          order: 'desc'
+          limit
         }
       });
       return response.data.repositories || [];
@@ -175,7 +175,7 @@ export class RepositoryService {
     try {
       const response = await api.get(`/repositories/recent`, {
         params: { 
-          limit: limit,
+          limit,
           sort_by: 'created_at',
           order: 'desc'
         }

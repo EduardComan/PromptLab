@@ -10,8 +10,6 @@ import {
   CircularProgress,
   Alert,
   FormControl,
-  FormControlLabel,
-  Switch,
   IconButton,
   Stack,
   Snackbar
@@ -45,14 +43,23 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [success, setSuccess] = useState<boolean>(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }));
+    
+    // Clear validation error when user types
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,25 +93,29 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
   };
 
   const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+    let isValid = true;
+
     if (!formData.name.trim()) {
-      setError('Organization name is required');
-      return false;
+      errors.name = 'Organization name is required';
+      isValid = false;
     }
 
     if (!formData.display_name.trim()) {
-      setError('Display name is required');
-      return false;
+      errors.display_name = 'Display name is required';
+      isValid = false;
     }
 
     // Name validation (lowercase, no spaces, only dashes and alphanumeric)
     const nameRegex = /^[a-z0-9-]+$/;
-    if (!nameRegex.test(formData.name)) {
-      setError('Name can only contain lowercase letters, numbers, and hyphens');
-      return false;
+    if (formData.name && !nameRegex.test(formData.name)) {
+      errors.name = 'Name can only contain lowercase letters, numbers, and hyphens';
+      isValid = false;
     }
 
+    setValidationErrors(errors);
     setError(null);
-    return true;
+    return isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,20 +129,34 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       setLoading(true);
       setError(null);
       
-      // Create organization using the correct endpoint and payload structure
-      const response = await api.post('/organizations', {
+      // Log request data for debugging
+      const requestData = {
         name: formData.name,
         display_name: formData.display_name,
-        description: formData.description,
-      });
+        description: formData.description || '',
+      };
+      
+      console.log('Organization creation request:', requestData);
+      
+      // Create organization using the exact field names expected by the backend
+      const response = await api.post('/organizations', requestData);
+      
+      console.log('Organization creation response:', response.data);
+      
+      // Check if the structure is as expected
+      if (!response.data || !response.data.organization) {
+        throw new Error('Invalid response format from server');
+      }
       
       const organization = response.data.organization;
       
       // Upload logo if provided
-      if (orgLogo && organization.id) {
+      if (orgLogo && organization && organization.id) {
         try {
           const logoFormData = new FormData();
           logoFormData.append('logo', orgLogo);
+          
+          console.log('Uploading logo for organization:', organization.id);
           
           await api.post(`/organizations/${organization.id}/logo`, logoFormData, {
             headers: {
@@ -149,20 +174,32 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       // If in dialog mode, call onSuccess
       if (isDialog && onSuccess) {
         onSuccess(organization);
-        setLoading(false);
       } else {
-        // Otherwise redirect to organization page immediately
-        navigate(`/organizations/${organization.name}`);
+        // Otherwise redirect to organization page after a short delay
+        setTimeout(() => {
+          navigate(`/organizations/${organization.name}`);
+        }, 1000);
       }
       
     } catch (err: any) {
       console.error('Error creating organization:', err);
       
-      if (err.response?.data?.message) {
+      // Handle validation errors from backend
+      if (err.response?.data?.errors) {
+        const backendErrors = err.response.data.errors;
+        const formattedErrors: {[key: string]: string} = {};
+        
+        Object.keys(backendErrors).forEach(key => {
+          formattedErrors[key] = backendErrors[key];
+        });
+        
+        setValidationErrors(formattedErrors);
+      } else if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else {
         setError('Failed to create organization. Please try again.');
       }
+    } finally {
       setLoading(false);
     }
   };
@@ -244,24 +281,24 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
           
           <Grid item xs={12} md={9}>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <TextField
-                  label="Organization Name"
+                  label="Organization Name (URL identifier)"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
                   fullWidth
                   required
-                  helperText="Unique identifier (lowercase, hyphens, no spaces)"
-                  sx={{ mb: 2 }}
+                  helperText={validationErrors.name || "Will be used in the URL, e.g., promphub.io/organizations/your-org"}
+                  error={!!validationErrors.name}
+                  placeholder="my-org"
                   inputProps={{
-                    pattern: '[a-z0-9-]+',
+                    pattern: "[a-z0-9-]+",
+                    title: "Lowercase letters, numbers and hyphens only"
                   }}
-                  disabled={loading}
                 />
               </Grid>
-              
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <TextField
                   label="Display Name"
                   name="display_name"
@@ -269,12 +306,11 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
                   onChange={handleInputChange}
                   fullWidth
                   required
-                  helperText="Name displayed to users"
-                  sx={{ mb: 2 }}
-                  disabled={loading}
+                  helperText={validationErrors.display_name || "The name shown to users"}
+                  error={!!validationErrors.display_name}
+                  placeholder="My Organization"
                 />
               </Grid>
-              
               <Grid item xs={12}>
                 <TextField
                   label="Description"
@@ -284,37 +320,30 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
                   fullWidth
                   multiline
                   rows={3}
-                  helperText="A short description of your organization"
-                  sx={{ mb: 2 }}
-                  disabled={loading}
+                  helperText={validationErrors.description || "Briefly describe your organization"}
+                  error={!!validationErrors.description}
                 />
               </Grid>
             </Grid>
-          </Grid>
-          
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            
+            <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               {onCancel && (
-                <Button
-                  variant="outlined"
+                <Button 
+                  variant="outlined" 
                   onClick={onCancel}
                   disabled={loading}
                 >
                   Cancel
                 </Button>
               )}
-              
-              <Button
-                type="submit"
-                variant="contained"
+              <Button 
+                type="submit" 
+                variant="contained" 
                 color="primary"
-                disabled={loading || success}
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={20} /> : undefined}
               >
-                {loading ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  'Create Organization'
-                )}
+                {loading ? 'Creating...' : 'Create Organization'}
               </Button>
             </Box>
           </Grid>

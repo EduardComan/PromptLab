@@ -3,11 +3,9 @@ import {
   Container, 
   Typography, 
   Box, 
-  Breadcrumbs, 
-  Link as MuiLink, 
   Paper 
 } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import OrganizationCreateForm from '../components/Organization/OrganizationCreateForm';
 import { Organization } from '../interfaces';
 
@@ -20,31 +18,29 @@ const OrganizationCreate: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Breadcrumbs navigation */}
-      <Breadcrumbs sx={{ mb: 4 }}>
-        <MuiLink component={Link} to="/" color="inherit">
-          Home
-        </MuiLink>
-        <MuiLink component={Link} to="/organizations" color="inherit">
-          Organizations
-        </MuiLink>
-        <Typography color="text.primary">Create New Organization</Typography>
-      </Breadcrumbs>
-
+    <Container maxWidth="md" sx={{ py: 6 }}>
       {/* Page header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+      <Box sx={{ mb: 5, textAlign: 'center' }}>
+        <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
           Create New Organization
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
           Organizations allow you to collaborate with others on repositories. 
           Create an organization to get started.
         </Typography>
       </Box>
 
       {/* Create organization form */}
-      <Paper elevation={0} sx={{ backgroundColor: 'transparent' }}>
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          backgroundColor: 'background.paper',
+          p: 4,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <OrganizationCreateForm onSuccess={handleCreateSuccess} />
       </Paper>
     </Container>

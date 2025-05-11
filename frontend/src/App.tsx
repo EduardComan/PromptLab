@@ -13,7 +13,7 @@ import Discover from './pages/Discover';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import Organizations from './pages/Organizations';
-import OrganizationDetail from './pages/OrganizationDetail';
+import OrganizationProfile from './pages/OrganizationProfile';
 import OrganizationCreate from './pages/OrganizationCreate';
 import Repository from './pages/Repository';
 import RepositoryCreate from './pages/RepositoryCreate';
@@ -88,8 +88,8 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<ProtectedLayoutRoute element={<Dashboard />} />} />
           <Route path="/discover" element={<ProtectedLayoutRoute element={<Discover />} />} />
-          <Route path="/organizations/:orgId" element={<ProtectedLayoutRoute element={<OrganizationDetail />} />} />
-          <Route path="/org/:orgName" element={<ProtectedLayoutRoute element={<OrganizationDetail />} />} />
+          <Route path="/organizations/:id" element={<ProtectedLayoutRoute element={<OrganizationProfile />} />} />
+          <Route path="/org/:name" element={<ProtectedLayoutRoute element={<OrganizationProfile />} />} />
           <Route path="/users/:username" element={<ProtectedLayoutRoute element={<Profile />} />} />
           <Route path="/profile" element={<ProtectedLayoutRoute element={<Profile />} />} />
           <Route path="/profile/edit" element={<ProtectedLayoutRoute element={<EditProfile />} />} />
