@@ -34,6 +34,7 @@ import PromptPlayground from '../components/Prompt/PromptPlayground';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingIndicator from '../components/Common/LoadingIndicator';
 import ErrorMessage from '../components/Common/ErrorMessage';
+import RepositoryService from '../services/RepositoryService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -136,14 +137,20 @@ const Repository = () => {
 
   const handleStarToggle = async () => {
     try {
+      let updatedStars = 0;
+      
       if (isStarred) {
-        await api.delete(`/repositories/${repoId}/star`);
+        // Use the service to unstar
+        const result = await RepositoryService.unstarRepository(repoId || '');
+        updatedStars = result.stars;
         setIsStarred(false);
-        setStarCount(prev => prev - 1);
+        setStarCount(updatedStars);
       } else {
-        await api.post(`/repositories/${repoId}/star`);
+        // Use the service to star
+        const result = await RepositoryService.starRepository(repoId || '');
+        updatedStars = result.stars;
         setIsStarred(true);
-        setStarCount(prev => prev + 1);
+        setStarCount(updatedStars);
       }
     } catch (err) {
       console.error('Error toggling star:', err);

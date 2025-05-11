@@ -122,7 +122,7 @@ export class RepositoryService {
     
     try {
       // Use the correct endpoint based on backend route
-      const response = await api.delete(`/repositories/${id}/star`);
+      const response = await api.delete(`/repositories/${id}/unstar`);
       console.log(`Repository unstarred successfully, stars:`, response.data);
       return {
         stars: response.data.stars || 0

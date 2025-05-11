@@ -48,10 +48,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
 import { organizationService } from '../services/OrganizationService';
-import { Organization, OrganizationMember } from '../interfaces';
+import { Organization, OrganizationMember, Repository } from '../interfaces';
 import api from '../services/api';
 import { useOrganizationDetails } from '../hooks/useOrganizationDetails';
 import { useOrganizationInvite } from '../hooks/useOrganizationInvite';
+import RepositoryService from '../services/RepositoryService';
 
 // Tab Panel Component
 interface TabPanelProps {
@@ -171,7 +172,8 @@ const OrganizationProfile: React.FC = () => {
     error,
     isAdmin,
     isOwner,
-    fetchOrganizationDetails
+    fetchOrganizationDetails,
+    setRepositories
   } = useOrganizationDetails();
 
   const {
@@ -304,15 +306,44 @@ const OrganizationProfile: React.FC = () => {
   const handleStarToggle = async (repoId: string, isStarred: boolean) => {
     if (!organization?.name) return;
     try {
+      let updatedStars = 0;
+      
       if (isStarred) {
-        await api.delete(`/repositories/${repoId}/star`);
+        const result = await RepositoryService.unstarRepository(repoId);
+        updatedStars = result.stars;
       } else {
-        await api.post(`/repositories/${repoId}/star`);
+        const result = await RepositoryService.starRepository(repoId);
+        updatedStars = result.stars;
       }
-      fetchOrganizationDetails();
+      
+      // Update repositories with accurate star count
+      setRepositories((prevRepos: Repository[]) => 
+        prevRepos.map((repo: Repository) => {
+          if (repo.id === repoId) {
+            // Use a type assertion to handle the extended properties
+            return {
+              ...repo,
+              isStarred: !isStarred,
+              is_starred: !isStarred,
+              stars_count: updatedStars,
+              // Use stars_count consistently instead of _count
+              // since it might not exist on the Repository type
+            } as Repository;
+          }
+          return repo;
+        })
+      );
+      
+      setSnackbar({ 
+        open: true, 
+        message: isStarred ? 'Repository unstarred' : 'Repository starred', 
+        severity: 'success' 
+      });
     } catch (err: any) {
       console.error('Error toggling star:', err);
       setSnackbar({ open: true, message: 'Failed to update star status', severity: 'error' });
+      // Refresh everything from server in case of error
+      fetchOrganizationDetails();
     }
   };
 

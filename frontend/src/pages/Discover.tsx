@@ -17,7 +17,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Fade,
+  Divider,
+  Tooltip
 } from '@mui/material';
 import {
   TrendingUp as TrendingIcon,
@@ -25,11 +28,14 @@ import {
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   Person as PersonIcon,
-  Sort as SortIcon
+  Sort as SortIcon,
+  Clear as ClearIcon,
+  FilterList as FilterIcon
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import RepositoryService from '../services/RepositoryService';
 
 interface Repository {
   id: string;
@@ -62,21 +68,30 @@ const Discover: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('stars');
   const [contentType, setContentType] = useState('repositories');
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       if (contentType === 'repositories') {
-        // Use the correct trending endpoint
-        console.log('Fetching trending repositories');
-        const response = await api.get('/repositories/trending', {
-          params: { 
-            limit: 20
-          }
-        });
+        // Use search endpoint if search is active, otherwise use trending
+        const endpoint = isSearchActive && searchQuery 
+          ? '/repositories/search' 
+          : '/repositories/trending';
         
-        console.log('Trending repositories response:', response.data);
+        const params: Record<string, any> = { limit: 20 };
+        
+        // Only add search param if needed
+        if (isSearchActive && searchQuery) {
+          params.query = searchQuery;
+          params.sort = sortBy;
+        }
+        
+        console.log(`Fetching ${isSearchActive ? 'search results' : 'trending repositories'}`);
+        const response = await api.get(endpoint, { params });
+        
+        console.log('Repositories response:', response.data);
         
         if (!response.data || !response.data.repositories) {
           throw new Error('Invalid response format from server');
@@ -84,15 +99,23 @@ const Discover: React.FC = () => {
         
         setRepositories(response.data.repositories || []);
       } else if (contentType === 'organizations') {
-        // Use the correct organizations endpoint
-        console.log('Fetching popular organizations');
-        const response = await api.get('/organizations/popular', {
-          params: { 
-            limit: 20
-          }
-        });
+        // Use search endpoint if search is active, otherwise use popular
+        const endpoint = isSearchActive && searchQuery
+          ? '/organizations/search'
+          : '/organizations/popular';
         
-        console.log('Popular organizations response:', response.data);
+        const params: Record<string, any> = { limit: 20 };
+        
+        // Only add search param if needed
+        if (isSearchActive && searchQuery) {
+          params.query = searchQuery;
+          params.sort = sortBy;
+        }
+        
+        console.log(`Fetching ${isSearchActive ? 'search results' : 'popular organizations'}`);
+        const response = await api.get(endpoint, { params });
+        
+        console.log('Organizations response:', response.data);
         
         if (!response.data || !response.data.organizations) {
           throw new Error('Invalid response format from server');
@@ -107,15 +130,26 @@ const Discover: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [contentType]);
+  }, [contentType, searchQuery, sortBy, isSearchActive]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Reset search state when switching content types
+    if (!isSearchActive) {
+      fetchData();
+    }
+  }, [fetchData, contentType, sortBy, isSearchActive]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchData();
+    if (searchQuery.trim()) {
+      setIsSearchActive(true);
+      fetchData();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearchActive(false);
   };
 
   const handleStarRepo = async (repoId: string, isStarred: boolean) => {
@@ -125,32 +159,33 @@ const Discover: React.FC = () => {
     }
     
     try {
-      // Update UI immediately for better user experience
+      // Call the appropriate service method and get the accurate star count from backend
+      let updatedStars = 0;
+      
+      if (isStarred) {
+        const result = await RepositoryService.unstarRepository(repoId);
+        updatedStars = result.stars;
+      } else {
+        const result = await RepositoryService.starRepository(repoId);
+        updatedStars = result.stars;
+      }
+      
+      // Update UI with the accurate star count from backend
       setRepositories(prev => 
         prev.map(repo => {
           if (repo.id === repoId) {
-            const starCount = (repo.stars_count !== undefined ? repo.stars_count : repo.star_count || 0);
             return { 
               ...repo, 
               isStarred: !isStarred,
               is_starred: !isStarred,
-              stars_count: isStarred ? starCount - 1 : starCount + 1,
-              star_count: isStarred ? starCount - 1 : starCount + 1
+              stars_count: updatedStars,
+              star_count: updatedStars
             };
           }
           return repo;
         })
       );
       
-      // Call the appropriate service method
-      if (isStarred) {
-        await api.delete(`/repositories/${repoId}/star`);
-      } else {
-        await api.post(`/repositories/${repoId}/star`);
-      }
-      
-      // No need to refresh data immediately as we've already updated UI
-      // This avoids potential flickering and provides a smooth user experience
     } catch (error) {
       console.error('Error starring repository:', error);
       
@@ -162,7 +197,6 @@ const Discover: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Header Section */}
-
       <Box>
         <Typography variant="h4" component="h1" fontWeight="bold">
           PromptLab Community
@@ -173,68 +207,146 @@ const Discover: React.FC = () => {
       </Box>
 
       {/* Search and Filter Section */}
-      <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+      <Paper 
+        elevation={1} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 2,
+          transition: 'all 0.3s ease',
+          border: isSearchActive ? '1px solid #4a90e2' : '1px solid #eaeaea'
+        }}
+      >
         <Box 
           component="form" 
           onSubmit={handleSearch}
           sx={{ 
             display: 'flex', 
             mb: 3,
-            gap: 2
+            gap: 2,
+            position: 'relative'
           }}
         >
           <TextField
-            placeholder="Search repositories or organizations..."
+            placeholder={`Search ${contentType === 'repositories' ? 'prompts, models, tools...' : 'organizations, teams...'}`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             fullWidth
             variant="outlined"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '8px',
+                transition: 'all 0.2s',
+                '&.Mui-focused': {
+                  boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.2)'
+                }
+              }
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon />
+                  <SearchIcon color={isSearchActive ? "primary" : "action"} />
                 </InputAdornment>
               ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={handleClearSearch}
+                    edge="end"
+                    size="small"
+                    aria-label="clear search"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              )
             }}
           />
           <Button 
             type="submit" 
             variant="contained" 
             color="primary"
+            disabled={!searchQuery.trim()}
+            sx={{ 
+              borderRadius: '8px',
+              minWidth: '120px',
+              fontWeight: 600
+            }}
           >
             Search
           </Button>
         </Box>
 
+        {isSearchActive && (
+          <Fade in={true}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Chip 
+                label={`Searching: "${searchQuery}"`}
+                onDelete={handleClearSearch}
+                color="primary"
+                variant="outlined"
+                sx={{ mr: 1 }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {repositories.length} results found
+              </Typography>
+            </Box>
+          </Fade>
+        )}
+
+        <Divider sx={{ mb: 2 }} />
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button 
-              variant={contentType === 'repositories' ? "contained" : "outlined"}
-              onClick={() => {
-                setContentType('repositories');
-                setSortBy('stars');
-              }}
-            >
-              Repositories
-            </Button>
-            <Button 
-              variant={contentType === 'organizations' ? "contained" : "outlined"}
-              onClick={() => {
-                setContentType('organizations');
-                setSortBy('name');
-              }}
-            >
-              Organizations
-            </Button>
+            <Tooltip title="Browse repositories">
+              <Button 
+                variant={contentType === 'repositories' ? "contained" : "outlined"}
+                onClick={() => {
+                  setContentType('repositories');
+                  setSortBy('stars');
+                  if (isSearchActive) {
+                    // Re-run search with new content type
+                    fetchData();
+                  }
+                }}
+                startIcon={<TrendingIcon />}
+                sx={{ borderRadius: '8px' }}
+              >
+                Repositories
+              </Button>
+            </Tooltip>
+            <Tooltip title="Browse organizations">
+              <Button 
+                variant={contentType === 'organizations' ? "contained" : "outlined"}
+                onClick={() => {
+                  setContentType('organizations');
+                  setSortBy('name');
+                  if (isSearchActive) {
+                    // Re-run search with new content type
+                    fetchData();
+                  }
+                }}
+                startIcon={<PersonIcon />}
+                sx={{ borderRadius: '8px' }}
+              >
+                Organizations
+              </Button>
+            </Tooltip>
           </Box>
           
           <FormControl size="small" variant="outlined" sx={{ minWidth: 180 }}>
             <InputLabel>Sort By</InputLabel>
             <Select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                if (isSearchActive) {
+                  // Re-run search with new sort
+                  fetchData();
+                }
+              }}
               label="Sort By"
-              startAdornment={<SortIcon fontSize="small" sx={{ mr: 1 }} />}
+              sx={{ borderRadius: '8px' }}
             >
               {contentType === 'repositories' && (
                 <>
@@ -257,7 +369,12 @@ const Discover: React.FC = () => {
       {/* Content Section */}
       <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
         <Typography variant="h5" component="h2" fontWeight={600} sx={{ mb: 3 }}>
-          {contentType === 'repositories' ? 'Popular Repositories' : 'Active Organizations'}
+          {isSearchActive ? 
+            `Search Results` : 
+            contentType === 'repositories' ? 
+              'Popular Repositories' : 
+              'Active Organizations'
+          }
         </Typography>
 
         {/* Repository/Organization Cards */}
@@ -270,8 +387,20 @@ const Discover: React.FC = () => {
             {repositories.length === 0 ? (
               <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h6" color="text.secondary">
-                  No items found matching your criteria
+                  {isSearchActive ? 
+                    `No results found for "${searchQuery}"` : 
+                    'No items found matching your criteria'
+                  }
                 </Typography>
+                {isSearchActive && (
+                  <Button 
+                    onClick={handleClearSearch}
+                    variant="outlined" 
+                    sx={{ mt: 2 }}
+                  >
+                    Clear Search
+                  </Button>
+                )}
               </Box>
             ) : (
               <Grid container spacing={3}>

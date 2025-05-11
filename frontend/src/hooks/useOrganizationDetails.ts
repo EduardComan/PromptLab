@@ -13,6 +13,7 @@ interface UseOrganizationDetailsReturn {
   isAdmin: boolean;
   isOwner: boolean;
   fetchOrganizationDetails: () => Promise<void>;
+  setRepositories: React.Dispatch<React.SetStateAction<Repository[]>>;
 }
 
 export function useOrganizationDetails(): UseOrganizationDetailsReturn {
@@ -162,6 +163,7 @@ export function useOrganizationDetails(): UseOrganizationDetailsReturn {
     error,
     isAdmin,
     isOwner,
-    fetchOrganizationDetails
+    fetchOrganizationDetails,
+    setRepositories
   };
 }

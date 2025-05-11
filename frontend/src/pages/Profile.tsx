@@ -49,14 +49,12 @@ const Profile: React.FC = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [localPrompts, setLocalPrompts] = useState<any[]>([]);
   const [localStarredPrompts, setLocalStarredPrompts] = useState<any[]>([]);
-  const [starCount, setStarCount] = useState<number>(0);
 
   // Initialize local state when data loads
   React.useEffect(() => {
     if (prompts && starredPrompts) {
       setLocalPrompts(prompts);
       setLocalStarredPrompts(starredPrompts);
-      setStarCount(profile?.starCount || 0);
     }
   }, [prompts, starredPrompts, profile]);
 
@@ -161,7 +159,7 @@ const Profile: React.FC = () => {
           <Box sx={{ flexGrow: 1 }}>
             <Tabs value={tabValue} onChange={handleTabChange} variant={isMobile ? 'scrollable' : 'standard'}>
               <Tab label={`Repositories ${profile.promptCount || 0}`} />
-              <Tab label={`Starred ${starCount}`} />
+              <Tab label={`Starred ${localStarredPrompts.length}`} />
             </Tabs>
 
             <TabPanel value={tabValue} index={0}>

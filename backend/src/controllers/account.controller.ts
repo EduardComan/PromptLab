@@ -7,7 +7,6 @@ import logger from '../utils/logger';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d';
 
-// Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, email, password, full_name, bio } = req.body;
@@ -83,7 +82,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Login user
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, password } = req.body;
@@ -135,7 +133,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Get current user profile
 export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user.id;
@@ -170,7 +167,6 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// Get user by username
 export const getUserByUsername = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username } = req.params;
@@ -258,7 +254,6 @@ export const getUserByUsername = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// Update user profile
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user.id;
@@ -314,7 +309,6 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// Change password
 export const changePassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user.id;
@@ -358,7 +352,6 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// Upload profile image
 export const uploadProfileImage = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user.id;
@@ -413,7 +406,6 @@ export const uploadProfileImage = async (req: Request, res: Response): Promise<v
   }
 };
 
-// List all users with pagination
 export const listUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;

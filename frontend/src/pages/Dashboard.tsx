@@ -1,22 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Container, 
-  Typography, 
-  Box, 
-  CircularProgress, 
-  Paper, 
-  Tabs, 
-  Tab, 
-  Alert,
-  Button,
-  Grid,
-  Snackbar
-} from '@mui/material';
-import { 
-  Code as CodeIcon, 
-  Star as StarIcon,
-  Refresh as RefreshIcon
+import {
+  Code as CodeIcon,
+  Star as StarIcon
 } from '@mui/icons-material';
+import {
+  Alert,
+  Box,
+  CircularProgress,
+  Container,
+  Grid,
+  Paper,
+  Snackbar,
+  Tab,
+  Tabs,
+  Typography
+} from '@mui/material';
+import React, { useCallback, useEffect, useState } from 'react';
 import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -50,7 +48,6 @@ const Dashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  const [starCount, setStarCount] = useState<number>(0);
 
   const fetchUserRepositories = useCallback(async () => {
     if (!user) return;
@@ -67,7 +64,6 @@ const Dashboard: React.FC = () => {
       try {
         const starredResponse = await api.get(`/accounts/me/starred`);
         const starredRepos = starredResponse.data.repositories || [];
-        setStarCount(starredResponse.data.starCount || starredRepos.length);
         
         // Update starred status in user repositories
         const starredRepoIds = new Set(starredRepos.map((repo: any) => repo.id));
@@ -77,10 +73,31 @@ const Dashboard: React.FC = () => {
         }));
         
         setMyRepositories(userReposWithStarredStatus);
-        setStarredRepositories(starredRepos.map((repo: any) => ({
-          ...repo,
-          isStarred: true
-        })));
+        
+        // Map starred repositories with proper star count handling
+        setStarredRepositories(starredRepos.map((repo: any) => {
+          // Handle star count from different possible sources in the API response
+          const starCount = 
+            // Direct stars_count property
+            repo.stars_count !== undefined ? repo.stars_count : 
+            // From metrics object
+            repo.metrics?.stars !== undefined ? repo.metrics.stars :
+            // From _count object
+            repo._count?.stars !== undefined ? repo._count.stars : 
+            // Fallback
+            0;
+            
+          return {
+            ...repo,
+            isStarred: true,
+            stars_count: starCount,
+            // Also store in _count for compatibility with RepositoryWideCard
+            _count: { 
+              ...(repo._count || {}),
+              stars: starCount
+            }
+          };
+        }));
       } catch (starredErr) {
         console.error('Error fetching starred repositories:', starredErr);
         // Don't fail the whole function if just starred repos fail
@@ -192,7 +209,7 @@ const Dashboard: React.FC = () => {
             <Tab 
               icon={<StarIcon fontSize="small" />} 
               iconPosition="start" 
-              label={`Starred ${starCount || 0}`} 
+              label={`Starred ${starredRepositories.length || 0}`} 
             />
           </Tabs>
           

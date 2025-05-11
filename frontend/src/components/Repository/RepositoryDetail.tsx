@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import PromptList from '../Prompt/PromptList';
 import ConfirmDialog from '../Common/ConfirmDialog';
+import RepositoryService from '../../services/RepositoryService';
 
 interface Repository {
   id: string;
@@ -100,19 +101,23 @@ const RepositoryDetail: React.FC = () => {
     
     setIsStarring(true);
     try {
+      let updatedStars = 0;
+      
       if (repository.is_starred) {
-        await axios.delete(`/repositories/${repoId}/star`);
+        const result = await RepositoryService.unstarRepository(repoId || '');
+        updatedStars = result.stars;
         setRepository({
           ...repository,
           is_starred: false,
-          stars_count: repository.stars_count - 1
+          stars_count: updatedStars
         });
       } else {
-        await axios.post(`/repositories/${repoId}/star`);
+        const result = await RepositoryService.starRepository(repoId || '');
+        updatedStars = result.stars;
         setRepository({
           ...repository,
           is_starred: true,
-          stars_count: repository.stars_count + 1
+          stars_count: updatedStars
         });
       }
     } catch (err) {
