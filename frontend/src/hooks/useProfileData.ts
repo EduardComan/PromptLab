@@ -105,6 +105,17 @@ export function useProfileData(
 }
 
 function mapRepo(repo: any): Repository {
+  // Normalize star count from different possible API response formats
+  const starCount = 
+    // Direct stars_count property
+    repo.stars_count !== undefined ? repo.stars_count : 
+    // From metrics object
+    repo.metrics?.stars !== undefined ? repo.metrics.stars :
+    // From _count object
+    repo._count?.stars !== undefined ? repo._count.stars : 
+    // Fallback
+    0;
+    
   return {
     id: repo.id,
     name: repo.name,
@@ -112,10 +123,15 @@ function mapRepo(repo: any): Repository {
     is_public: repo.is_public,
     created_at: repo.created_at,
     updated_at: repo.updated_at,
-    stars_count: repo.stars_count || 0,
+    stars_count: starCount,
     owner_user: repo.owner_user,
     owner_org: repo.owner_org,
     isStarred: repo.isStarred || false,
-    tags: repo.tags
+    tags: repo.tags,
+    // Also add to _count for components that expect it there
+    _count: {
+      ...(repo._count || {}),
+      stars: starCount
+    }
   };
 }

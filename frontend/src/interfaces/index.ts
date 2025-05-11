@@ -76,17 +76,44 @@ export interface OrganizationMember {
 export interface Repository {
   id: string;
   name: string;
-  slug: string;
+  slug?: string;
   description: string | null;
-  visibility: 'PUBLIC' | 'PRIVATE';
+  visibility?: 'PUBLIC' | 'PRIVATE';
   organizationId?: string;
-  createdById: string;
+  createdById?: string;
   created_at: string;
-  updatedAt: string;
+  updatedAt?: string;
+  updated_at?: string;
   organization?: Organization;
   createdBy?: User;
   prompts?: Prompt[];
   is_public: boolean;
+  owner_user?: {
+    id: string;
+    username: string;
+    profile_image?: {
+      id: string;
+    };
+  };
+  owner_org?: {
+    id: string;
+    name: string;
+    logo_image?: {
+      id: string;
+    };
+  };
+  stars_count?: number;
+  isStarred?: boolean;
+  is_starred?: boolean;
+  _count?: {
+    stars?: number;
+  };
+  metrics?: {
+    promptCount?: number;
+    starCount?: number;
+    stars?: number;
+    isStarred?: boolean;
+  };
   primaryPrompt?: {
     id: string;
     title: string;
@@ -95,10 +122,15 @@ export interface Repository {
     updated_at: string;
     versions: any[];
   };
-  metrics?: {
-    promptCount: number;
-    starCount: number;
+  prompt?: {
+    id: string;
+    title: string;
+    description: string | null;
   };
+  tags?: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
 // Prompt interfaces

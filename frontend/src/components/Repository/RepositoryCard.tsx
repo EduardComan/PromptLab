@@ -48,8 +48,10 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
     ? formatDistanceToNow(new Date(repository.updated_at), { addSuffix: true })
     : formatDistanceToNow(new Date(repository.created_at), { addSuffix: true });
   
-  // Calculate star count from either direct property or _count
-  const starCount = repository.stars_count || repository._count?.stars || 0;
+  // Calculate star count from available properties
+  const starCount = repository.stars_count || 
+    (repository._count && repository._count.stars) || 
+    0;
   
   const handleStar = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

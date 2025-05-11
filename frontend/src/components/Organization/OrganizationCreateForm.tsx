@@ -210,13 +210,13 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       sx={{
         p: isDialog ? 2 : 4,
         borderRadius: 2,
-        backgroundColor: 'rgba(245, 247, 250, 0.85)',
+        backgroundColor: 'rgb(245, 247, 250)',
         mb: isDialog ? 0 : 4,
       }}
     >
       {!isDialog && (
-        <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-          Create New Organization
+        <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 600, mb: 4}}>
+          Organization Details
         </Typography>
       )}
       
@@ -283,13 +283,13 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
-                  label="Organization Name (URL identifier)"
+                  label="Organization Tag"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
                   fullWidth
                   required
-                  helperText={validationErrors.name || "Will be used in the URL, e.g., promphub.io/organizations/your-org"}
+                  helperText={validationErrors.name || "Will be used for referenicing you organization e.g. @myPrompt"}
                   error={!!validationErrors.name}
                   placeholder="my-org"
                   inputProps={{

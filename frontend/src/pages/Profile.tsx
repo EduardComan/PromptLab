@@ -69,14 +69,78 @@ const Profile: React.FC = () => {
         return;
       }
 
+      let updatedStars = 0;
+      
       if (isStarred) {
-        await RepositoryService.unstarRepository(repoId);
+        const result = await RepositoryService.unstarRepository(repoId);
+        updatedStars = result.stars;
       } else {
-        await RepositoryService.starRepository(repoId);
+        const result = await RepositoryService.starRepository(repoId);
+        updatedStars = result.stars;
       }
 
-      // Refresh from backend to get updated star count
-      await refresh();
+      // Update local repositories with accurate star count
+      setLocalPrompts(prevPrompts => 
+        prevPrompts.map(repo => {
+          if (repo.id === repoId) {
+            return {
+              ...repo,
+              isStarred: !isStarred,
+              is_starred: !isStarred,
+              stars_count: updatedStars,
+              _count: { ...(repo._count || {}), stars: updatedStars },
+              // Conditionally add metrics if it exists
+              ...(repo.metrics ? {
+                metrics: {
+                  ...(repo.metrics || {}),
+                  stars: updatedStars,
+                  starCount: updatedStars
+                }
+              } : {})
+            };
+          }
+          return repo;
+        })
+      );
+      
+      // If this is a star action (not unstar), also update starred repos list
+      if (!isStarred) {
+        // Find the repo in the prompts list
+        const repoToAdd = localPrompts.find(repo => repo.id === repoId);
+        if (repoToAdd) {
+          // Add to starred if not already there
+          const updatedRepo = {
+            ...repoToAdd,
+            isStarred: true,
+            is_starred: true,
+            stars_count: updatedStars,
+            _count: { ...(repoToAdd._count || {}), stars: updatedStars },
+            // Conditionally add metrics if it exists
+            ...(repoToAdd.metrics ? {
+              metrics: {
+                ...(repoToAdd.metrics || {}),
+                stars: updatedStars,
+                starCount: updatedStars
+              }
+            } : {})
+          };
+          
+          // Check if it's already in the starred list
+          if (!localStarredPrompts.some(repo => repo.id === repoId)) {
+            setLocalStarredPrompts(prev => [...prev, updatedRepo]);
+          } else {
+            // Just update the existing starred repo
+            setLocalStarredPrompts(prev => 
+              prev.map(repo => repo.id === repoId ? updatedRepo : repo)
+            );
+          }
+        }
+      } else {
+        // Remove from starred repos if unstarring
+        setLocalStarredPrompts(prev => 
+          prev.filter(repo => repo.id !== repoId)
+        );
+      }
 
       setSnackbar({ open: true, message: isStarred ? 'Repository unstarred' : 'Repository starred', severity: 'success' });
     } catch (err) {

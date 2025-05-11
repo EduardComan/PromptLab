@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Organization, OrganizationMember, Repository } from '../interfaces';
+import { Organization, OrganizationMember } from '../interfaces';
+import { Repository } from '../components/Repository/RepositoryGrid';
 import api from '../services/api';
 
 interface UseOrganizationDetailsReturn {
@@ -79,16 +80,21 @@ export function useOrganizationDetails(): UseOrganizationDetailsReturn {
             ? reposResponse.data.repositories.map((repo: any) => ({
                 id: repo.id || '',
                 name: repo.name || '',
-                slug: repo.slug || '',
                 description: repo.description || '',
-                visibility: repo.visibility || 'private',
-                organizationId: repo.organizationId || '',
-                createdById: repo.createdById || '',
-                createdAt: repo.createdAt || new Date().toISOString(),
-                updatedAt: repo.updatedAt || new Date().toISOString(),
-                organization: repo.organization || null,
-                createdBy: repo.createdBy || null,
-                prompts: repo.prompts || []
+                is_public: repo.is_public !== undefined ? repo.is_public : true,
+                created_at: repo.created_at || repo.createdAt || new Date().toISOString(),
+                updated_at: repo.updated_at || repo.updatedAt,
+                owner_org: repo.owner_org || repo.organization || null,
+                owner_user: repo.owner_user || repo.createdBy || null,
+                _count: {
+                  stars: repo._count?.stars || repo.stars_count || 0 
+                },
+                stars_count: repo.stars_count || repo._count?.stars || 0,
+                isStarred: repo.isStarred || repo.is_starred || false,
+                metrics: {
+                  stars: repo.metrics?.stars || repo._count?.stars || repo.stars_count || 0,
+                  starCount: repo.metrics?.starCount || repo._count?.stars || repo.stars_count || 0
+                }
               }))
             : [];
         

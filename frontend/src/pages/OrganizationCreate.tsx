@@ -20,29 +20,17 @@ const OrganizationCreate: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 6 }}>
       {/* Page header */}
-      <Box sx={{ mb: 5, textAlign: 'center' }}>
+      <Box sx={{ mb: 5, textAlign: 'left' }}>
         <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
           Create New Organization
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-          Organizations allow you to collaborate with others on repositories. 
-          Create an organization to get started.
+        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600}}>
+          Collaborate more effectively through shared prompt spaces
         </Typography>
       </Box>
 
-      {/* Create organization form */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          backgroundColor: 'background.paper',
-          p: 4,
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'divider'
-        }}
-      >
-        <OrganizationCreateForm onSuccess={handleCreateSuccess} />
-      </Paper>
+      <OrganizationCreateForm onSuccess={handleCreateSuccess} />
+
     </Container>
   );
 };

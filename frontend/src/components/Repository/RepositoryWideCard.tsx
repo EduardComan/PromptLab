@@ -50,8 +50,10 @@ const RepositoryWideCard: React.FC<RepositoryWideCardProps> = React.memo(({
         ? `/api/images/${repository.owner_org.logo_image.id}`
         : undefined);
   
-  // Calculate star count from either direct property or _count
-  const starCount = repository.stars_count || repository._count?.stars || 0;
+  // Calculate star count from available properties
+  const starCount = repository.stars_count || 
+    (repository._count && repository._count.stars) || 
+    0;
   
   const handleStar = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
