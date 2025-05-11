@@ -5,9 +5,6 @@ import { User, Organization } from '../interfaces';
 import { Repository } from '../components/Repository/RepositoryGrid';
 
 export interface ExtendedUser extends User {
-  location?: string;
-  website?: string;
-  company?: string;
   promptCount?: number;
   starCount?: number;
 }

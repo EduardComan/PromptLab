@@ -68,25 +68,19 @@ const Discover: React.FC = () => {
     setError(null);
     try {
       if (contentType === 'repositories') {
-        // Fetch repositories based on sort criteria
-        const response = await api.get('/repositories', {
+        // Use the working trending endpoint instead
+        const response = await api.get('/repositories/trending', {
           params: { 
-            limit: 20, 
-            sort_by: sortBy, 
-            order: 'desc',
-            q: searchQuery || undefined
+            limit: 20
           }
         });
         
         setRepositories(response.data.repositories || []);
       } else if (contentType === 'organizations') {
-        // Fetch organizations
-        const response = await api.get('/organizations', {
+        // Use the working organizations endpoint
+        const response = await api.get('/organizations/popular', {
           params: { 
-            limit: 20, 
-            sort_by: sortBy, 
-            order: 'desc',
-            q: searchQuery || undefined
+            limit: 20
           }
         });
         
@@ -95,10 +89,11 @@ const Discover: React.FC = () => {
     } catch (error) {
       console.error(`Error fetching ${contentType}:`, error);
       setError(`Failed to load ${contentType}. Please try again later.`);
+      setRepositories([]);
     } finally {
       setLoading(false);
     }
-  }, [sortBy, searchQuery, contentType]);
+  }, [contentType]);
 
   useEffect(() => {
     fetchData();
@@ -140,12 +135,12 @@ const Discover: React.FC = () => {
         await api.post(`/repositories/${repoId}/star`);
       }
       
-      // Refresh data to ensure consistency
-      await fetchData();
+      // No need to refresh data immediately as we've already updated UI
+      // This avoids potential flickering and provides a smooth user experience
     } catch (error) {
       console.error('Error starring repository:', error);
       
-      // Refresh data in case of error
+      // Refresh data only in case of error to restore the correct state
       await fetchData();
     }
   };

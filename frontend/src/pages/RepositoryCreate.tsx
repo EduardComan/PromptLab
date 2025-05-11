@@ -1,25 +1,12 @@
-import React, { useState } from 'react';
 import {
-  Container,
-  Typography,
   Box,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Paper,
-  Button,
-  Grid,
-  Chip,
-  Alert,
-  Snackbar
+  Container,
+  Typography
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import NewRepositoryForm from '../components/Repository/NewRepositoryForm';
+import { useAuth } from '../contexts/AuthContext';
 
 const RepositoryCreate: React.FC = () => {
   const { user } = useAuth();

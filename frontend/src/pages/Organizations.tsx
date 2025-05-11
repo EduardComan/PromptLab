@@ -60,16 +60,13 @@ const Organizations: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/organizations', { 
+      const response = await api.get('/organizations/popular', { 
         params: { 
-          page,
           limit: 12,
-          sort,
-          search: search.trim() || undefined
         } 
       });
-      setOrganizations(response.data.organizations);
-      setTotalPages(Math.ceil(response.data.total / 12) || 1);
+      setOrganizations(response.data.organizations || []);
+      setTotalPages(1);
     } catch (err) {
       console.error('Error fetching organizations:', err);
       setError('Failed to load organizations. Please try again later.');

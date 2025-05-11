@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   Box, Container, CircularProgress, Snackbar, Alert, Grid, Tab, Tabs, Typography,
-  Avatar, Button, AvatarGroup, Tooltip, useMediaQuery, useTheme, Link as MuiLink
+  Avatar, Button, AvatarGroup, Tooltip, useMediaQuery, useTheme
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Link as LinkIcon, LocationOn as LocationIcon } from '@mui/icons-material';
+import { Edit as EditIcon } from '@mui/icons-material';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import RepositoryWideCard from '../components/Repository/RepositoryWideCard';
@@ -47,6 +47,18 @@ const Profile: React.FC = () => {
 
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [localPrompts, setLocalPrompts] = useState<any[]>([]);
+  const [localStarredPrompts, setLocalStarredPrompts] = useState<any[]>([]);
+  const [starCount, setStarCount] = useState<number>(0);
+
+  // Initialize local state when data loads
+  React.useEffect(() => {
+    if (prompts && starredPrompts) {
+      setLocalPrompts(prompts);
+      setLocalStarredPrompts(starredPrompts);
+      setStarCount(profile?.starCount || 0);
+    }
+  }, [prompts, starredPrompts, profile]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -54,17 +66,51 @@ const Profile: React.FC = () => {
 
   const handleStarToggle = async (repoId: string, isStarred: boolean) => {
     try {
+      if (!isAuthenticated) {
+        navigate('/login');
+        return;
+      }
+
+      let updatedStars = 0;
+      
       if (isStarred) {
-        await RepositoryService.unstarRepository(repoId);
+        const result = await RepositoryService.unstarRepository(repoId);
+        updatedStars = result.stars;
+        
+        // Update local state immediately
+        setLocalPrompts(prev => 
+          prev.map(repo => repo.id === repoId ? { ...repo, isStarred: false, stars_count: updatedStars } : repo)
+        );
+        setLocalStarredPrompts(prev => prev.filter(repo => repo.id !== repoId));
+        setStarCount(prevCount => Math.max(0, prevCount - 1));
+        
         setSnackbar({ open: true, message: 'Repository unstarred', severity: 'success' });
       } else {
-        await RepositoryService.starRepository(repoId);
+        const result = await RepositoryService.starRepository(repoId);
+        updatedStars = result.stars;
+        
+        // Update local state immediately
+        const repoToStar = localPrompts.find(repo => repo.id === repoId);
+        if (repoToStar) {
+          const updatedRepo = { ...repoToStar, isStarred: true, stars_count: updatedStars };
+          setLocalPrompts(prev => 
+            prev.map(repo => repo.id === repoId ? updatedRepo : repo)
+          );
+          // Only add to starred if not already there
+          setLocalStarredPrompts(prev => {
+            const exists = prev.some(repo => repo.id === repoId);
+            return exists ? prev : [...prev, updatedRepo];
+          });
+          setStarCount(prevCount => prevCount + 1);
+        }
+        
         setSnackbar({ open: true, message: 'Repository starred', severity: 'success' });
       }
-      await refresh(); // Ensures DB count/state is reflected
     } catch (err) {
       console.error(err);
       setSnackbar({ open: true, message: 'Error updating star', severity: 'error' });
+      // Refresh from server on error to ensure consistent state
+      refresh();
     }
   };
 
@@ -77,8 +123,8 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, width: '100%', height: '100%', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
-      <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ flexGrow: 1, width: '100%', height: '100%', overflow: 'auto', pt: 4 }}>
+      <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, mb: 4 }}>
           <Box sx={{ width: { xs: '100%', md: '30%' }, maxWidth: 320, mx: { xs: 'auto', md: 0 } }}>
             <Avatar
@@ -102,26 +148,9 @@ const Profile: React.FC = () => {
             <Typography variant="body1" color="text.secondary">@{profile.username}</Typography>
             <Typography variant="body1" sx={{ mt: 2, mb: 3 }}>{profile.bio || 'No bio provided'}</Typography>
 
-            {profile.location && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                <LocationIcon fontSize="small" sx={{ mr: 1.5 }} />
-                <Typography variant="body2" color="text.secondary">{profile.location}</Typography>
-              </Box>
-            )}
-            {profile.website && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <LinkIcon fontSize="small" sx={{ mr: 1.5 }} />
-                <MuiLink
-                  href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >{profile.website.replace(/^(https?:\/\/)?(www\.)?/, '')}</MuiLink>
-              </Box>
-            )}
-
-            <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Organizations</Typography>
+            <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>Organizations</Typography>
             {organizations.length > 0 ? (
-              <AvatarGroup max={6} sx={{ justifyContent: 'flex-start' }}>
+              <AvatarGroup max={6}>
                 {organizations.map(org => (
                   <Tooltip key={org.id} title={org.name}>
                     <Avatar component={Link} to="/organizations" src={org.logo_image_id ? `/api/images/${org.logo_image_id}` : undefined}>{org.name[0]}</Avatar>
@@ -135,14 +164,14 @@ const Profile: React.FC = () => {
 
           <Box sx={{ flexGrow: 1 }}>
             <Tabs value={tabValue} onChange={handleTabChange} variant={isMobile ? 'scrollable' : 'standard'}>
-              <Tab label={`Repositories ${profile.promptCount}`} />
-              <Tab label={`Starred ${profile.starCount}`} />
+              <Tab label={`Repositories ${profile.promptCount || 0}`} />
+              <Tab label={`Starred ${starCount}`} />
             </Tabs>
 
             <TabPanel value={tabValue} index={0}>
-              {prompts.length > 0 ? (
+              {localPrompts.length > 0 ? (
                 <Grid container spacing={3}>
-                  {prompts.map(repo => (
+                  {localPrompts.map(repo => (
                     <Grid item xs={12} key={repo.id}>
                       <RepositoryWideCard
                         repository={repo}
@@ -156,12 +185,12 @@ const Profile: React.FC = () => {
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
-              {starredPrompts.length > 0 ? (
+              {localStarredPrompts.length > 0 ? (
                 <Grid container spacing={3}>
-                  {starredPrompts.map(repo => (
+                  {localStarredPrompts.map(repo => (
                     <Grid item xs={12} key={repo.id}>
                       <RepositoryWideCard
-                        repository={{ ...repo, isStarred: true }}
+                        repository={repo}
                         onStar={handleStarToggle}
                         profileImage={profile.profile_image_id ? `/api/accounts/profile-image/${profile.profile_image_id}` : undefined}
                       />

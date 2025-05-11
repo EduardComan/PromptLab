@@ -36,16 +36,37 @@ const Dashboard: React.FC = () => {
     setError(null);
     
     try {
-      // Fetch user's own repositories
+      // Fetch user's own repositories using the endpoint that works
       const reposResponse = await api.get(`/repositories/user/${user.username}`);
-      setMyRepositories(reposResponse.data.repositories || []);
+      const userRepos = reposResponse.data.repositories || [];
       
-      // Fetch starred repositories
-      const starredResponse = await api.get(`/accounts/user/${user.username}/starred`);
-      setStarredRepositories(starredResponse.data.repositories || []);
+      // Fetch starred repos using the endpoint that works
+      try {
+        const starredResponse = await api.get(`/repositories/starred`);
+        const starredRepos = starredResponse.data.repositories || [];
+        
+        // Update starred status in user repositories
+        const starredRepoIds = new Set(starredRepos.map((repo: any) => repo.id));
+        const userReposWithStarredStatus = userRepos.map((repo: any) => ({
+          ...repo,
+          isStarred: starredRepoIds.has(repo.id)
+        }));
+        
+        setMyRepositories(userReposWithStarredStatus);
+        setStarredRepositories(starredRepos.map((repo: any) => ({
+          ...repo,
+          isStarred: true
+        })));
+      } catch (starredErr) {
+        console.error('Error fetching starred repositories:', starredErr);
+        // Don't fail the whole function if just starred repos fail
+        setMyRepositories(userRepos);
+        setStarredRepositories([]);
+      }
     } catch (error) {
       console.error('Error fetching repositories:', error);
       setError('Failed to load your repositories. Please try again.');
+      setMyRepositories([]);
     } finally {
       setLoading(false);
     }

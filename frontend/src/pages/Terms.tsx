@@ -50,7 +50,7 @@ const Terms: React.FC = () => {
           </Typography>
           
           <Chip 
-            label="Last Updated: August 2023" 
+            label="Last Updated: March 2025" 
             color="primary" 
             variant="outlined" 
             sx={{ mt: 2 }} 
@@ -62,8 +62,7 @@ const Terms: React.FC = () => {
         <Box sx={{ mb: 5 }}>
           <Typography variant="body1" paragraph>
             Welcome to PromptLab! These terms and conditions outline the rules and regulations for using our platform.
-            By accessing this website, we assume you accept these terms and conditions in full. If you disagree with these terms,
-            you must not use our website.
+            By accessing this website, we assume you accept these terms and conditions in full.
           </Typography>
         </Box>
         
@@ -81,8 +80,7 @@ const Terms: React.FC = () => {
               secondary={
                 <Typography component="span" variant="body1" color="text.primary">
                   We encourage creative prompt engineering, but please use our platform responsibly.
-                  Avoid creating prompts that could generate harmful content. Think of it as having AI superpowers - 
-                  and as Uncle Ben said, "With great power comes great responsibility."
+                  Avoid creating prompts that could generate harmful content."
                 </Typography>
               }
             />
@@ -103,26 +101,6 @@ const Terms: React.FC = () => {
                   You own the prompts you create. We don't claim any ownership over your brilliant ideas.
                   However, by posting publicly, you're allowing others to see and learn from your work - think
                   of it as contributing to the collective prompt engineering knowledge pool. Sharing is caring!
-                </Typography>
-              }
-            />
-          </ListItem>
-
-          <ListItem alignItems="flex-start" sx={{ mb: 3, pb: 2 }}>
-            <ListItemIcon>
-              <CodeIcon color="primary" fontSize="large" />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  API Usage & Rate Limits
-                </Typography>
-              }
-              secondary={
-                <Typography component="span" variant="body1" color="text.primary">
-                  Our API has reasonable rate limits to ensure everyone gets fair access. If your prompts 
-                  are so popular they're hitting our limits, congratulations! That's a good problem to have.
-                  Contact us for premium options - we're happy to help your prompt empire grow.
                 </Typography>
               }
             />
@@ -219,22 +197,6 @@ const Terms: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 5 }}>
           <Button 
             component={RouterLink} 
-            to="/login" 
-            variant="outlined" 
-            size="large"
-            sx={{ 
-              px: 4, 
-              py: 1.2, 
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
-          >
-            Back to Login
-          </Button>
-          
-          <Button 
-            component={RouterLink} 
             to="/register" 
             variant="contained" 
             size="large"
@@ -252,7 +214,7 @@ const Terms: React.FC = () => {
               }
             }}
           >
-            Sign Up
+            Back to Register
           </Button>
         </Box>
       </Paper>

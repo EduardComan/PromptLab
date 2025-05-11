@@ -14,15 +14,21 @@ import {
   Paper,
   Grid,
   Divider,
-  FormHelperText
+  FormHelperText,
+  Alert
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import RepositoryService from '../../services/RepositoryService';
+import api from '../../services/api';
 
 interface Organization {
   id: string;
   name: string;
+  display_name: string;
+  role?: string;
+  description?: string;
+  logo_image_id?: string;
 }
 
 interface NewRepositoryFormProps {
@@ -40,30 +46,50 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   
+  // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [ownerType, setOwnerType] = useState(initialOrgId ? 'organization' : 'user');
+  const [ownerType, setOwnerType] = useState<'user' | 'organization'>(initialOrgId ? 'organization' : 'user');
   const [organizationId, setOrganizationId] = useState(initialOrgId || '');
   
+  // Form validation and state
   const [nameError, setNameError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(editMode);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orgsLoading, setOrgsLoading] = useState(true);
   
   // Fetch organizations the user belongs to
   useEffect(() => {
     const fetchOrganizations = async () => {
+      setOrgsLoading(true);
       try {
-        const response = await axios.get('/organizations');
-        setOrganizations(response.data.organizations);
+        const response = await api.get('/organizations/me');
+        console.log('Organizations response:', response.data);
+        
+        // Extract organizations from the response
+        const orgs = response.data.organizations || [];
+        setOrganizations(orgs);
+        
+        // If initialOrgId is provided, set it as selected
+        if (initialOrgId && orgs.length > 0) {
+          const org = orgs.find((org: Organization) => org.id === initialOrgId);
+          if (org) {
+            setOrganizationId(org.id);
+            setOwnerType('organization');
+          }
+        }
       } catch (err) {
         console.error('Error fetching organizations:', err);
+        setError('Failed to load your organizations. You can still create a personal repository.');
+      } finally {
+        setOrgsLoading(false);
       }
     };
     
     fetchOrganizations();
-  }, []);
+  }, [initialOrgId]);
   
   // If in edit mode, fetch existing repository data
   useEffect(() => {
@@ -71,16 +97,15 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
       const fetchRepository = async () => {
         setIsLoading(true);
         try {
-          const response = await axios.get(`/repositories/${repositoryId}`);
-          const repo = response.data;
+          const repo = await RepositoryService.getRepositoryById(repositoryId);
           
           setName(repo.name);
           setDescription(repo.description || '');
           setIsPublic(repo.is_public);
           
-          if (repo.owner_org) {
+          if (repo.owner_org_id) {
             setOwnerType('organization');
-            setOrganizationId(repo.owner_org.id);
+            setOrganizationId(repo.owner_org_id);
           } else {
             setOwnerType('user');
           }
@@ -113,7 +138,10 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
     
     // Validate organization selection if owner type is organization
     if (ownerType === 'organization' && !organizationId) {
+      setError('Please select an organization');
       isValid = false;
+    } else {
+      setError(null);
     }
     
     return isValid;
@@ -127,34 +155,68 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
     }
     
     setIsSubmitting(true);
+    setError(null);
     
     try {
-      const payload = {
-        name,
-        description: description || null,
-        is_public: isPublic,
-        owner_type: ownerType,
-        owner_id: ownerType === 'organization' ? organizationId : undefined
-      };
-      
-      let response;
-      
       if (editMode && repositoryId) {
-        response = await axios.put(`/repositories/${repositoryId}`, payload);
+        // Update existing repository
+        const updateData = {
+          name,
+          description,
+          isPublic
+        };
+        
+        console.log('Updating repository with data:', updateData);
+        await RepositoryService.updateRepository(repositoryId, updateData);
+        navigate(`/repositories/${repositoryId}`);
       } else {
-        response = await axios.post('/repositories', payload);
+        // Create new repository with default prompt
+        const defaultPromptTitle = `${name}-Prompt`;
+        
+        const createData = {
+          name,
+          description,
+          isPublic,
+          ownerType,
+          orgId: ownerType === 'organization' ? organizationId : undefined,
+          default_prompt_title: defaultPromptTitle,
+          default_prompt_content: '' // Empty content as requested
+        };
+        
+        console.log('Creating repository with data:', createData);
+        const result = await RepositoryService.createRepository(createData);
+        console.log('Repository creation result:', result);
+        
+        // Navigate to the new repository - different APIs might return different structures
+        if (result && result.repository && result.repository.id) {
+          navigate(`/repositories/${result.repository.id}`);
+        } else if (result && result.id) {
+          navigate(`/repositories/${result.id}`);
+        } else {
+          throw new Error('Repository creation failed, no repository ID returned');
+        }
       }
-      
-      navigate(`/repositories/${response.data.id}`);
     } catch (err: any) {
-      console.error('Error creating repository:', err);
+      console.error('Error with repository:', err);
       
-      if (err.response?.data?.errors?.name) {
-        setNameError(err.response.data.errors.name);
+      // Handle different error responses
+      if (err.response?.data?.errors) {
+        // Validation errors
+        const validationErrors = err.response.data.errors;
+        if (validationErrors.name) {
+          setNameError(validationErrors.name);
+        }
+        
+        // Set general error message
+        setError(err.response?.data?.message || 'Validation failed. Please check your inputs.');
+      } else if (err.response?.data?.message) {
+        // API returned error message
+        setError(err.response.data.message);
       } else {
-        setError(err.response?.data?.message || 'Failed to create repository');
+        // Generic error
+        setError(err.message || 'Failed to process repository');
       }
-    } finally {
+      
       setIsSubmitting(false);
     }
   };
@@ -174,9 +236,9 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
       </Typography>
       
       {error && (
-        <Typography color="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-        </Typography>
+        </Alert>
       )}
       
       <form onSubmit={handleSubmit}>
@@ -189,36 +251,63 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
               <RadioGroup
                 row
                 value={ownerType}
-                onChange={(e) => setOwnerType(e.target.value)}
+                onChange={(e) => {
+                  setOwnerType(e.target.value as 'user' | 'organization');
+                  // Reset organization ID if switching to user
+                  if (e.target.value === 'user') {
+                    setOrganizationId('');
+                  }
+                }}
               >
                 <FormControlLabel 
                   value="user" 
                   control={<Radio />} 
-                  label={`Personal (${user?.username})`} 
+                  label={`Personal`} 
+                  disabled={isSubmitting}
                 />
                 <FormControlLabel 
                   value="organization" 
                   control={<Radio />} 
                   label="Organization" 
-                  disabled={organizations.length === 0}
+                  disabled={orgsLoading || organizations.length === 0 || isSubmitting}
                 />
               </RadioGroup>
               
               {ownerType === 'organization' && (
                 <FormControl fullWidth sx={{ mt: 1 }}>
-                  <TextField
-                    select
-                    label="Select Organization"
-                    value={organizationId}
-                    onChange={(e) => setOrganizationId(e.target.value)}
-                    required
-                  >
-                    {organizations.map((org) => (
-                      <MenuItem key={org.id} value={org.id}>
-                        {org.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  {orgsLoading ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
+                      <CircularProgress size={20} />
+                      <Typography variant="body2">Loading your organizations...</Typography>
+                    </Box>
+                  ) : organizations.length > 0 ? (
+                    <TextField
+                      select
+                      label="Select Organization"
+                      value={organizationId}
+                      onChange={(e) => setOrganizationId(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                    >
+                      {organizations.map((org) => (
+                        <MenuItem key={org.id} value={org.id}>
+                          {org.display_name || org.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  ) : (
+                    <Alert severity="info">
+                      You don't belong to any organizations. 
+                      <Button 
+                        component="a" 
+                        href="/organizations/new" 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      >
+                        Create one
+                      </Button>
+                    </Alert>
+                  )}
                 </FormControl>
               )}
             </FormControl>
@@ -237,7 +326,7 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
               error={!!nameError}
               helperText={nameError || 'Use only letters, numbers, hyphens and underscores'}
               required
-              disabled={editMode && !isLoading}
+              disabled={editMode || isSubmitting}
             />
           </Grid>
           
@@ -249,30 +338,45 @@ const NewRepositoryForm: React.FC<NewRepositoryFormProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               multiline
               rows={3}
-              placeholder="Provide a short description of this repository"
+              disabled={isSubmitting}
             />
           </Grid>
           
           <Grid item xs={12}>
             <FormControlLabel
               control={
-                <Switch
+                <Switch 
                   checked={isPublic}
                   onChange={(e) => setIsPublic(e.target.checked)}
                   color="primary"
+                  disabled={isSubmitting}
                 />
               }
               label="Public repository"
             />
             <FormHelperText>
               {isPublic 
-                ? 'Anyone can see this repository. You choose who can contribute.' 
+                ? 'Everyone can see this repository, but only you and collaborators can make changes.' 
                 : 'You choose who can see and contribute to this repository.'}
             </FormHelperText>
           </Grid>
           
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+          {!editMode && (
+            <>
+              <Grid item xs={12}>
+                <Divider />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  A default prompt named "{name ? `${name}-Prompt` : 'Repository-Prompt'}" will be created automatically.
+                </Alert>
+              </Grid>
+            </>
+          )}
+          
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               <Button 
                 variant="outlined" 
                 onClick={() => navigate(-1)}

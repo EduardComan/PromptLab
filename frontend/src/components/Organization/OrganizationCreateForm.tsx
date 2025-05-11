@@ -13,7 +13,8 @@ import {
   FormControlLabel,
   Switch,
   IconButton,
-  Stack
+  Stack,
+  Snackbar
 } from '@mui/material';
 import {
   Business as BusinessIcon,
@@ -95,7 +96,7 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       return false;
     }
 
-    // Name validation (lowercase, no spaces, only dashes)
+    // Name validation (lowercase, no spaces, only dashes and alphanumeric)
     const nameRegex = /^[a-z0-9-]+$/;
     if (!nameRegex.test(formData.name)) {
       setError('Name can only contain lowercase letters, numbers, and hyphens');
@@ -115,8 +116,9 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
 
     try {
       setLoading(true);
+      setError(null);
       
-      // Create organization
+      // Create organization using the correct endpoint and payload structure
       const response = await api.post('/organizations', {
         name: formData.name,
         display_name: formData.display_name,
@@ -124,18 +126,22 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       });
       
       const organization = response.data.organization;
-      const orgId = organization.id;
       
       // Upload logo if provided
-      if (orgLogo) {
-        const logoFormData = new FormData();
-        logoFormData.append('logo', orgLogo);
-        
-        await api.post(`/organizations/${orgId}/logo`, logoFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+      if (orgLogo && organization.id) {
+        try {
+          const logoFormData = new FormData();
+          logoFormData.append('logo', orgLogo);
+          
+          await api.post(`/organizations/${organization.id}/logo`, logoFormData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        } catch (logoError) {
+          console.error('Error uploading logo, but organization was created:', logoError);
+          // Continue with success flow even if logo upload fails
+        }
       }
       
       setSuccess(true);
@@ -143,17 +149,20 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       // If in dialog mode, call onSuccess
       if (isDialog && onSuccess) {
         onSuccess(organization);
+        setLoading(false);
       } else {
-        // Otherwise redirect to organization page after a short delay
-        setTimeout(() => {
-          navigate(`/organizations/${organization.name}`);
-        }, 1500);
+        // Otherwise redirect to organization page immediately
+        navigate(`/organizations/${organization.name}`);
       }
       
     } catch (err: any) {
       console.error('Error creating organization:', err);
-      setError(err.response?.data?.message || 'Failed to create organization');
-    } finally {
+      
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to create organization. Please try again.');
+      }
       setLoading(false);
     }
   };
@@ -164,7 +173,7 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
       sx={{
         p: isDialog ? 2 : 4,
         borderRadius: 2,
-        backgroundImage: isDialog ? 'none' : 'linear-gradient(to right, #f5f7fa, #c3cfe2)',
+        backgroundColor: 'rgba(245, 247, 250, 0.85)',
         mb: isDialog ? 0 : 4,
       }}
     >
@@ -180,9 +189,9 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
         </Alert>
       )}
       
-      {success && (
+      {success && !isDialog && (
         <Alert severity="success" sx={{ mb: 3 }}>
-          Organization created successfully! {isDialog ? '' : 'Redirecting...'}
+          Organization created successfully! Redirecting...
         </Alert>
       )}
       
@@ -243,11 +252,12 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
                   onChange={handleInputChange}
                   fullWidth
                   required
-                  helperText="Unique identifier (lowercase, no spaces)"
+                  helperText="Unique identifier (lowercase, hyphens, no spaces)"
                   sx={{ mb: 2 }}
                   inputProps={{
                     pattern: '[a-z0-9-]+',
                   }}
+                  disabled={loading}
                 />
               </Grid>
               
@@ -259,8 +269,9 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
                   onChange={handleInputChange}
                   fullWidth
                   required
-                  helperText="How the organization appears to users"
+                  helperText="Name displayed to users"
                   sx={{ mb: 2 }}
+                  disabled={loading}
                 />
               </Grid>
               
@@ -272,19 +283,20 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
                   onChange={handleInputChange}
                   fullWidth
                   multiline
-                  rows={4}
-                  helperText="Tell users about your organization (optional)"
+                  rows={3}
+                  helperText="A short description of your organization"
                   sx={{ mb: 2 }}
+                  disabled={loading}
                 />
               </Grid>
             </Grid>
           </Grid>
           
-          <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Stack direction="row" spacing={2}>
-              {isDialog && onCancel && (
-                <Button 
-                  variant="outlined" 
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              {onCancel && (
+                <Button
+                  variant="outlined"
                   onClick={onCancel}
                   disabled={loading}
                 >
@@ -295,18 +307,16 @@ const OrganizationCreateForm: React.FC<OrganizationCreateFormProps> = ({
               <Button
                 type="submit"
                 variant="contained"
-                disabled={loading}
-                startIcon={loading ? <CircularProgress size={20} /> : null}
-                sx={{
-                  background: 'linear-gradient(45deg, #4568dc, #b06ab3)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #3457cb, #9f59a2)',
-                  }
-                }}
+                color="primary"
+                disabled={loading || success}
               >
-                {loading ? 'Creating...' : 'Create Organization'}
+                {loading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Create Organization'
+                )}
               </Button>
-            </Stack>
+            </Box>
           </Grid>
         </Grid>
       </Box>

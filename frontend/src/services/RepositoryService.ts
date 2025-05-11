@@ -23,19 +23,36 @@ export class RepositoryService {
     isPublic: boolean;
     ownerType: 'user' | 'organization';
     orgId?: string;
+    default_prompt_title?: string;
+    default_prompt_content?: string;
   }): Promise<any> {
     try {
-      // Format the data as expected by the API
-      const requestData = {
+      // Format the data as expected by the API - use snake_case for backend
+      const requestData: any = {
         name: data.name,
         description: data.description || '',
-        is_public: data.isPublic,
-        owner_type: data.ownerType,
-        org_id: data.orgId
+        is_public: data.isPublic, // Snake case for backend
+        default_prompt_title: data.default_prompt_title || `${data.name}-Prompt`,
+        default_prompt_content: data.default_prompt_content || ''
       };
+
+      // Add org_id only if ownerType is 'organization' and orgId is provided
+      if (data.ownerType === 'organization' && data.orgId) {
+        requestData.org_id = data.orgId; // Snake case for backend
+      }
       
-      const response = await api.post('/repositories', requestData);
-      return response.data;
+      // Debug the request data before sending
+      console.log('Repository creation request data:', requestData);
+      
+      try {
+        const response = await api.post('/repositories', requestData);
+        console.log('Repository creation successful response:', response.data);
+        return response.data;
+      } catch (error: any) {
+        console.error('Repository creation error response:', error.response?.data);
+        console.error('Repository creation error status:', error.response?.status);
+        throw error;
+      }
     } catch (error) {
       console.error('Error creating repository:', error);
       throw error;
@@ -51,12 +68,13 @@ export class RepositoryService {
     isPublic?: boolean;
   }): Promise<any> {
     try {
-      // Format the data as expected by the API
-      const requestData = {
-        name: data.name,
-        description: data.description,
-        is_public: data.isPublic
-      };
+      // Format the data as expected by the API - use snake_case for backend
+      const requestData: any = {};
+      
+      // Only include fields that are provided
+      if (data.name !== undefined) requestData.name = data.name;
+      if (data.description !== undefined) requestData.description = data.description;
+      if (data.isPublic !== undefined) requestData.is_public = data.isPublic; // Snake case for backend
       
       const response = await api.put(`/repositories/${id}`, requestData);
       return response.data;
@@ -85,7 +103,7 @@ export class RepositoryService {
     try {
       console.log(`Starring repository ${id}`);
       const response = await api.post(`/repositories/${id}/star`);
-      console.log(`Repository starred successfully, stars: ${response.data.stars}`);
+      console.log(`Repository starred successfully, stars:`, response.data);
       return {
         stars: response.data.stars || 0
       };
@@ -101,29 +119,17 @@ export class RepositoryService {
   static async unstarRepository(id: string): Promise<{ stars: number }> {
     console.log(`Unstarring repository ${id}`);
     
-    // Try multiple endpoint formats that might be used by the backend
-    const endpoints = [
-      `/repositories/${id}/star`,      // DELETE to /star
-      `/repositories/${id}/unstar`,    // DELETE to /unstar
-      `/repositories/${id}/stars`      // DELETE to /stars
-    ];
-    
-    for (let endpoint of endpoints) {
-      try {
-        console.log(`Trying to unstar using endpoint: ${endpoint}`);
-        const response = await api.delete(endpoint);
-        console.log(`Repository unstarred successfully via ${endpoint}, stars: ${response.data.stars}`);
-        return {
-          stars: response.data.stars || 0
-        };
-      } catch (error) {
-        console.warn(`Failed to unstar using endpoint: ${endpoint}`, error);
-        // Continue to the next endpoint if this one failed
-      }
+    try {
+      // Use the correct endpoint based on backend route
+      const response = await api.delete(`/repositories/${id}/unstar`);
+      console.log(`Repository unstarred successfully, stars:`, response.data);
+      return {
+        stars: response.data.stars || 0
+      };
+    } catch (error) {
+      console.error(`Error unstarring repository ${id}:`, error);
+      throw error;
     }
-    
-    // If all attempts failed, throw an error
-    throw new Error("Failed to unstar repository. All endpoint attempts failed.");
   }
 
   /**
@@ -132,8 +138,13 @@ export class RepositoryService {
   static async isRepositoryStarred(id: string): Promise<boolean> {
     try {
       const response = await api.get(`/repositories/${id}/star`);
+      console.log(`Repository star check response:`, response.data);
       return response.data.isStarred || false;
-    } catch (error) {
+    } catch (error: any) {
+      // A 404 response means the repository is not starred
+      if (error.response && error.response.status === 404) {
+        return false;
+      }
       console.error('Error checking if repository is starred:', error);
       return false;
     }

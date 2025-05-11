@@ -16,7 +16,6 @@ import {
   Card
 } from '@mui/material';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { RocketLaunch as RocketIcon } from '@mui/icons-material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -24,6 +23,7 @@ import GoogleIcon from '@mui/icons-material/Google';
 import AppleIcon from '@mui/icons-material/Apple';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import { LoadingButton } from '@mui/lab';
+import { useLoginForm } from '../hooks/useLoginForm';
 
 // Styled components
 const PageContainer = styled(Box)(({ theme }) => ({
@@ -232,22 +232,21 @@ const carouselItems = [
 ];
 
 const Login: React.FC = () => {
-  const { login, error } = useAuth();
+  const {
+    credentials,
+    showPassword,
+    error,
+    loading,
+    handleInputChange,
+    handleClickShowPassword,
+    validateForm,
+    handleSubmit,
+  } = useLoginForm();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   
-  const [formData, setFormData] = useState({
-    username: '',
-    password: ''
-  });
-  
-  const [loading, setLoading] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [showPassword, setShowPassword] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
-  const [loginSuccess, setLoginSuccess] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Check for redirected messages in location state
   useEffect(() => {
@@ -267,88 +266,6 @@ const Login: React.FC = () => {
 
   const handleDotClick = (index: number) => {
     setActiveStep(index);
-  };
-  
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear validation error when user types
-    if (formErrors[name]) {
-      setFormErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-    
-    // Clear any login errors when user starts typing again
-    if (loginError) {
-      setLoginError(null);
-    }
-  };
-  
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    
-    // Username validation
-    if (!formData.username) {
-      errors.username = 'Username is required';
-    }
-    
-    // Password validation
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setLoginError(null);
-      
-      // Ensure we only pass username and password exactly as expected by the backend
-      await login(formData.username, formData.password);
-      
-      setLoginSuccess(true);
-      
-      // Navigate to dashboard after successful login
-      setTimeout(() => {
-        navigate('/');
-      }, 100);
-    } catch (err: any) {
-      console.error('Login error:', err);
-      
-      // Display user-friendly error message
-      const errorMessage = err.message || 'Failed to login. Please check your credentials.';
-      
-      // Set more specific error messages for common issues
-      if (errorMessage.includes('credentials')) {
-        setLoginError('Invalid username or password. Please try again.');
-      } else if (errorMessage.includes('server')) {
-        setLoginError('Server error. Please try again later.');
-      } else if (errorMessage.includes('connection')) {
-        setLoginError('Connection error. Please check your internet connection.');
-      } else {
-        setLoginError(errorMessage);
-      }
-      
-      setLoading(false);
-    }
   };
   
   return (
@@ -494,7 +411,7 @@ const Login: React.FC = () => {
         </LogoContainer>
         
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: '#000', textAlign: 'center' }}>
-          Welcome back!
+          Sign in to your account
         </Typography>
         
         <Typography variant="body1" sx={{ mb: 5, color: '#666', textAlign: 'center' }}>
@@ -507,49 +424,30 @@ const Login: React.FC = () => {
           </Alert>
         )}
         
-        {loginError && (
-          <Alert severity="error" sx={{ mb: 3, borderRadius: 2, width: '100%', maxWidth: 400 }}>
-            {loginError}
-          </Alert>
-        )}
-        
-        <Box component="form" onSubmit={handleSubmit} sx={{ 
-          animation: 'fadeIn 1s ease-in-out',
-          width: '100%',
-          maxWidth: 400
-        }}>
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ width: '100%', maxWidth: 560, mx: 'auto', display: 'flex', flexDirection: 'column', animation: 'fadeIn 1s ease-in-out' }}
+        >
           <StyledTextField
             required
             fullWidth
-            id="username"
-            label="Username"
             name="username"
+            label="Username"
             autoComplete="username"
-            autoFocus
-            value={formData.username}
+            value={credentials.username}
             onChange={handleInputChange}
-            error={!!formErrors.username}
-            helperText={formErrors.username}
-            InputLabelProps={{
-              shrink: true,
-            }}
-            InputProps={{
-              sx: { fontWeight: 500 }
-            }}
+            disabled={loading}
           />
-          
           <StyledTextField
             required
             fullWidth
             name="password"
             label="Password"
             type={showPassword ? 'text' : 'password'}
-            id="password"
             autoComplete="current-password"
-            value={formData.password}
+            value={credentials.password}
             onChange={handleInputChange}
-            error={!!formErrors.password}
-            helperText={formErrors.password}
             InputLabelProps={{
               shrink: true,
             }}
@@ -560,73 +458,34 @@ const Login: React.FC = () => {
                     aria-label="toggle password visibility"
                     onClick={handleClickShowPassword}
                     edge="end"
+                    size="small"
+                    disabled={loading}
                   >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                    {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                   </IconButton>
                 </InputAdornment>
               ),
-              sx: { fontWeight: 500 }
             }}
+            disabled={loading}
           />
-          
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'flex-end', 
-            mb: 3,
-            mt: 1
-          }}>
-            <Link 
-              component={RouterLink} 
-              to="/forgot-password" 
-              sx={{ 
-                color: '#333', 
-                textDecoration: 'none', 
-                fontWeight: 600, 
-                '&:hover': { 
-                  color: '#000' 
-                } 
-              }}
-            >
-              Forgot password?
-            </Link>
-          </Box>
-          
           <LoadingButton
             type="submit"
             fullWidth
             loading={loading}
             loadingIndicator="Signing in..."
-            variant="contained"
-            disabled={loginSuccess}
-            sx={{
-              mt: 3,
-              mb: 2,
-              color: '#fff',
-              borderRadius: 5,
-              backgroundColor: '#000',
-              padding: '12px',
-              fontSize: '1rem',
-              fontWeight: 600,
-              '&:hover': {
-                backgroundColor: '#333',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
-              },
-              transition: 'all 0.2s ease'
-            }}
+            disabled={loading}
+            sx={{ py: 1.5, mt: 1, mb: 1.5, fontWeight: 600, textTransform: 'none', borderRadius: 12, boxShadow: 'none', backgroundColor: '#333', color: '#fff', transition: 'all 0.3s ease', '&:hover': { backgroundColor: '#000', boxShadow: '0 4px 8px rgba(0,0,0,0.1)', transform: 'translateY(-2px)' } }}
           >
             Sign In
           </LoadingButton>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', my: 1.5 }}>
             <Divider sx={{ flex: 1 }} />
             <Typography variant="body2" sx={{ mx: 2, color: '#888' }}>
               or continue with
             </Typography>
             <Divider sx={{ flex: 1 }} />
           </Box>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 2 }}>
             <SocialButton aria-label="Google">
               <GoogleIcon />
             </SocialButton>
@@ -637,12 +496,11 @@ const Login: React.FC = () => {
               <FacebookIcon />
             </SocialButton>
           </Box>
-          
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" sx={{ color: '#666' }}>
-              Not a member?{' '}
+              Don't have an account?{' '}
               <Link component={RouterLink} to="/register" sx={{ color: '#333', textDecoration: 'none', fontWeight: 600, '&:hover': { color: '#000' } }}>
-                Register now
+                Register
               </Link>
             </Typography>
           </Box>

@@ -27,6 +27,7 @@ import AppleIcon from '@mui/icons-material/Apple';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import { PersonOutline as PersonOutlineIcon } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
+import { useRegisterForm } from '../hooks/useRegisterForm';
 
 // Styled components
 const PageContainer = styled(Box)(({ theme }) => ({
@@ -67,7 +68,7 @@ const FormSection = styled(Box)(({ theme }) => ({
   padding: theme.spacing(4, 6),
   display: 'flex',
   flexDirection: 'column',
-  justifyContent: 'flex-start',
+  justifyContent: 'center',
   alignItems: 'center',
   [theme.breakpoints.down('md')]: {
     width: '100%',
@@ -285,27 +286,22 @@ const carouselItems = [
 ];
 
 const Register: React.FC = () => {
-  const { register, error } = useAuth();
-  const navigate = useNavigate();
-  const theme = useTheme();
-  
-  const [formData, setFormData] = useState<RegisterData>({
-    username: '',
-    email: '',
-    password: '',
-    full_name: '',
-    bio: ''
-  });
-  
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const {
+    formData,
+    confirmPassword,
+    showPassword,
+    showConfirmPassword,
+    termsAccepted,
+    error,
+    loading,
+    handleInputChange,
+    handleClickShowPassword,
+    handleClickShowConfirmPassword,
+    handleTermsChange,
+    handleSubmit,
+  } = useRegisterForm();
+
   const [activeStep, setActiveStep] = useState(0);
-  const [registrationError, setRegistrationError] = useState<string | null>(null);
-  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   // Auto-rotate carousel
   useEffect(() => {
@@ -318,122 +314,6 @@ const Register: React.FC = () => {
 
   const handleDotClick = (index: number) => {
     setActiveStep(index);
-  };
-  
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-  
-  const handleClickShowConfirmPassword = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear validation error when user types
-    if (formErrors[name]) {
-      setFormErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-
-    // Clear any existing registration error when user types
-    if (registrationError) {
-      setRegistrationError(null);
-    }
-  };
-  
-  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setConfirmPassword(e.target.value);
-    
-    // Clear validation error
-    if (formErrors.confirmPassword) {
-      setFormErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.confirmPassword;
-        return newErrors;
-      });
-    }
-  };
-
-  const handleTermsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTermsAccepted(e.target.checked);
-    if (formErrors.terms) {
-      setFormErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.terms;
-        return newErrors;
-      });
-    }
-  };
-  
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    
-    // Username validation
-    if (!formData.username) {
-      errors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      errors.username = 'Username must be at least 3 characters';
-    }
-    
-    // Email validation
-    if (!formData.email) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Email is invalid';
-    }
-    
-    // Password validation
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
-    }
-    
-    // Confirm password validation
-    if (formData.password !== confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-
-    // Terms validation
-    if (!termsAccepted) {
-      errors.terms = 'You must agree to the Terms & Conditions';
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setRegistrationError(null);
-      
-      await register(formData);
-      setRegistrationSuccess(true);
-      
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        navigate('/login', { 
-          state: { message: 'Registration successful! Please login with your new account.' }
-        });
-      }, 2000);
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setRegistrationError(err.message || 'Registration failed. Please try again.');
-      setLoading(false);
-    }
   };
   
   return (
@@ -582,25 +462,13 @@ const Register: React.FC = () => {
           Create your account
         </Typography>
         
-        <Typography variant="body1" sx={{ mb: 2, color: '#666', textAlign: 'center' }}>
-          Join thousands of users collaborating on AI prompts
+        <Typography variant="body1" sx={{ mb: 6, color: '#666', textAlign: 'center' }}>
+        Join a growing community of users collaborating on AI prompts
         </Typography>
         
         {error && (
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2, width: '100%', maxWidth: 560 }}>
             {error}
-          </Alert>
-        )}
-        
-        {registrationError && (
-          <Alert severity="error" sx={{ mb: 2, borderRadius: 2, width: '100%', maxWidth: 560 }}>
-            {registrationError}
-          </Alert>
-        )}
-        
-        {registrationSuccess && (
-          <Alert severity="success" sx={{ mb: 2, borderRadius: 2, width: '100%', maxWidth: 560 }}>
-            Registration successful! Redirecting to login...
           </Alert>
         )}
         
@@ -625,12 +493,7 @@ const Register: React.FC = () => {
               autoComplete="username"
               value={formData.username}
               onChange={handleInputChange}
-              error={!!formErrors.username}
-              helperText={formErrors.username}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              disabled={loading || registrationSuccess}
+              disabled={loading}
             />
             
             <StyledTextField
@@ -642,12 +505,7 @@ const Register: React.FC = () => {
               autoComplete="email"
               value={formData.email}
               onChange={handleInputChange}
-              error={!!formErrors.email}
-              helperText={formErrors.email}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              disabled={loading || registrationSuccess}
+              disabled={loading}
             />
           </Box>
           
@@ -658,12 +516,7 @@ const Register: React.FC = () => {
             autoComplete="name"
             value={formData.full_name}
             onChange={handleInputChange}
-            error={!!formErrors.full_name}
-            helperText={formErrors.full_name}
-            InputLabelProps={{
-              shrink: true,
-            }}
-            disabled={loading || registrationSuccess}
+            disabled={loading}
           />
           
           <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, width: '100%' }}>
@@ -676,8 +529,6 @@ const Register: React.FC = () => {
               autoComplete="new-password"
               value={formData.password}
               onChange={handleInputChange}
-              error={!!formErrors.password}
-              helperText={formErrors.password}
               InputLabelProps={{
                 shrink: true,
               }}
@@ -689,14 +540,14 @@ const Register: React.FC = () => {
                       onClick={handleClickShowPassword}
                       edge="end"
                       size="small"
-                      disabled={loading || registrationSuccess}
+                      disabled={loading}
                     >
                       {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
-              disabled={loading || registrationSuccess}
+              disabled={loading}
             />
             
             <StyledTextField
@@ -706,9 +557,7 @@ const Register: React.FC = () => {
               label="Confirm Password"
               type={showConfirmPassword ? 'text' : 'password'}
               value={confirmPassword}
-              onChange={handleConfirmPasswordChange}
-              error={!!formErrors.confirmPassword}
-              helperText={formErrors.confirmPassword}
+              onChange={handleInputChange}
               InputLabelProps={{
                 shrink: true,
               }}
@@ -720,14 +569,14 @@ const Register: React.FC = () => {
                       onClick={handleClickShowConfirmPassword}
                       edge="end"
                       size="small"
-                      disabled={loading || registrationSuccess}
+                      disabled={loading}
                     >
                       {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
-              disabled={loading || registrationSuccess}
+              disabled={loading}
             />
           </Box>
           
@@ -739,12 +588,10 @@ const Register: React.FC = () => {
             rows={2}
             value={formData.bio}
             onChange={handleInputChange}
-            error={!!formErrors.bio}
-            helperText={formErrors.bio}
             InputLabelProps={{
               shrink: true,
             }}
-            disabled={loading || registrationSuccess}
+            disabled={loading}
           />
           
           <FormControlLabel
@@ -758,7 +605,7 @@ const Register: React.FC = () => {
                     color: '#333',
                   },
                 }}
-                disabled={loading || registrationSuccess}
+                disabled={loading}
               />
             }
             label={
@@ -770,9 +617,9 @@ const Register: React.FC = () => {
               </Typography>
             }
           />
-          {formErrors.terms && (
+          {error && (
             <Typography color="error" variant="caption" sx={{ display: 'block', ml: 2, mb: 1 }}>
-              {formErrors.terms}
+              {error}
             </Typography>
           )}
           
@@ -781,7 +628,7 @@ const Register: React.FC = () => {
             fullWidth
             loading={loading}
             loadingIndicator="Creating account..."
-            disabled={loading || registrationSuccess}
+            disabled={loading}
             sx={{ 
               py: 1.5,
               mt: 1,

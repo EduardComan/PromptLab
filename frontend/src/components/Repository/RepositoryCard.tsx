@@ -176,4 +176,4 @@ const RepositoryCard: React.FC<RepositoryCardProps> = React.memo(({
 
 RepositoryCard.displayName = 'RepositoryCard';
 
-export default RepositoryCard; 
+export default RepositoryCard;
