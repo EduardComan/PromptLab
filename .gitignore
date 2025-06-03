@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+package-lock.json
+
+# Build output
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# Uploads
+uploads/
+
+# Build
+.env.*.local
+*.tsbuildinfo
+
+# Editor / System
+.history/
+
+# DB / Docker
+*.pid
+*.sock
+postgres-data/
+
+# React
+*.env.local
+.cache/
+
+# Markdown
+*.md

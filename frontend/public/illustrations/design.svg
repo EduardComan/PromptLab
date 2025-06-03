@@ -1,0 +1,52 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="250" cy="250" r="180" fill="#F4F9F4" opacity="0.6"/>
+  
+  <!-- Central document -->
+  <rect x="190" y="140" width="120" height="150" rx="5" fill="#FFFFFF" stroke="#333333" stroke-width="2"/>
+  <line x1="210" y1="165" x2="290" y2="165" stroke="#E0E0E0" stroke-width="4"/>
+  <line x1="210" y1="185" x2="290" y2="185" stroke="#E0E0E0" stroke-width="4"/>
+  <line x1="210" y1="205" x2="260" y2="205" stroke="#E0E0E0" stroke-width="4"/>
+  <rect x="210" y="225" width="60" height="45" rx="3" fill="#74C69D" opacity="0.7"/>
+  
+  <!-- Version nodes -->
+  <circle cx="180" cy="340" r="20" fill="#74C69D"/>
+  <text x="180" y="345" text-anchor="middle" fill="white" font-family="Arial" font-size="14">v1</text>
+  
+  <circle cx="250" cy="340" r="20" fill="#74C69D"/>
+  <text x="250" y="345" text-anchor="middle" fill="white" font-family="Arial" font-size="14">v2</text>
+  
+  <circle cx="320" cy="340" r="20" fill="#74C69D"/>
+  <text x="320" y="345" text-anchor="middle" fill="white" font-family="Arial" font-size="14">v3</text>
+  
+  <!-- Branch lines -->
+  <path d="M250 290L250 320" stroke="#333333" stroke-width="2"/>
+  <path d="M250 320L180 320L180 320" stroke="#333333" stroke-width="2"/>
+  <path d="M250 320L320 320L320 320" stroke="#333333" stroke-width="2"/>
+  <path d="M180 320L180 340" stroke="#333333" stroke-width="2"/>
+  <path d="M250 320L250 340" stroke="#333333" stroke-width="2"/>
+  <path d="M320 320L320 340" stroke="#333333" stroke-width="2"/>
+  
+  <!-- Floating elements -->
+  <circle cx="140" cy="170" r="15" fill="#E0E0E0"/>
+  <path d="M133 170L140 177L147 170" stroke="#333333" stroke-width="2" stroke-linecap="round"/>
+  
+  <circle cx="360" cy="170" r="15" fill="#E0E0E0"/>
+  <path d="M353 170L360 177L367 170" stroke="#333333" stroke-width="2" stroke-linecap="round"/>
+  
+  <circle cx="140" cy="240" r="15" fill="#E0E0E0"/>
+  <path d="M133 240L140 247L147 240" stroke="#333333" stroke-width="2" stroke-linecap="round"/>
+  
+  <circle cx="360" cy="240" r="15" fill="#E0E0E0"/>
+  <path d="M353 240L360 247L367 240" stroke="#333333" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Connection dots -->
+  <circle cx="160" cy="120" r="8" fill="#74C69D" opacity="0.7"/>
+  <circle cx="250" cy="100" r="10" fill="#74C69D" opacity="0.7"/>
+  <circle cx="340" cy="120" r="8" fill="#74C69D" opacity="0.7"/>
+  
+  <!-- Connection lines -->
+  <path d="M160 120C160 120 180 130 190 140" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M250 100C250 100 250 120 250 140" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M340 120C340 120 320 130 310 140" stroke="#74C69D" stroke-width="2" stroke-dasharray="4 4"/>
+</svg> 

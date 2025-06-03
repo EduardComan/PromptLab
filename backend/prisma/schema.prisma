@@ -1,0 +1,205 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id               String             @id @default(uuid())
+  username         String             @unique
+  email            String             @unique
+  password         String
+  full_name        String?
+  bio              String?
+  profile_image_id String?            @unique @map("profile_image_id")
+  created_at       DateTime           @default(now()) @map("created_at")
+  updated_at       DateTime           @updatedAt @map("updated_at")
+  profile_image    Image?             @relation("ProfileImage", fields: [profile_image_id], references: [id])
+  repositories     Repository[]       @relation("OwnerUserRepositories")
+  collaborations   RepoCollaborator[] @relation("UserCollaborations")
+  stars            Star[]             @relation("UserStars")
+  prompt_versions  PromptVersion[]    @relation("VersionAuthor")
+  prompt_runs      PromptRun[]        @relation("RunUser")
+  merge_requests   MergeRequest[]     @relation("MergeRequestCreator")
+  org_memberships  OrgMembership[]    @relation("UserMemberships")
+  owned_orgs       Organization[]     @relation("OrgOwner")
+
+  @@map("accounts")
+}
+
+model Image {
+  id              String        @id @default(uuid())
+  data            Bytes?
+  mime_type       String        @map("mime_type")
+  description     String?
+  uploaded_by     String?       @map("uploaded_by")
+  created_at      DateTime      @default(now()) @map("created_at")
+  updated_at      DateTime      @updatedAt @map("updated_at")
+  account_profile Account?      @relation("ProfileImage")
+  org_logos       Organization? @relation("LogoImage")
+
+  @@map("images")
+}
+
+model Organization {
+  id            String          @id @default(uuid())
+  name          String          @unique
+  display_name  String          @map("display_name")
+  description   String?
+  logo_image_id String?         @unique @map("logo_image_id")
+  owner_id      String          @map("owner_id")
+  created_at    DateTime        @default(now()) @map("created_at")
+  updated_at    DateTime        @updatedAt @map("updated_at")
+  logo_image    Image?          @relation("LogoImage", fields: [logo_image_id], references: [id])
+  owner         Account         @relation("OrgOwner", fields: [owner_id], references: [id])
+  repositories  Repository[]    @relation("OwnerOrgRepositories")
+  memberships   OrgMembership[] @relation("OrgMemberships")
+
+  @@map("organizations")
+}
+
+model Repository {
+  id            String             @id @default(uuid())
+  name          String
+  description   String?
+  is_public     Boolean            @default(false) @map("is_public")
+  owner_user_id String?            @map("owner_user_id")
+  owner_org_id  String?            @map("owner_org_id")
+  created_at    DateTime           @default(now()) @map("created_at")
+  updated_at    DateTime           @updatedAt @map("updated_at")
+  owner_user    Account?           @relation("OwnerUserRepositories", fields: [owner_user_id], references: [id])
+  owner_org     Organization?      @relation("OwnerOrgRepositories", fields: [owner_org_id], references: [id])
+  prompts       Prompt[]           @relation("RepositoryPrompts")
+  collaborators RepoCollaborator[] @relation("RepositoryCollaborators")
+  stars         Star[]             @relation("RepositoryStars")
+
+  @@unique([name, owner_user_id, owner_org_id])
+  @@map("repositories")
+}
+
+model Prompt {
+  id             String          @id @default(uuid())
+  repository_id  String          @map("repository_id")
+  title          String
+  description    String?
+  created_at     DateTime        @default(now()) @map("created_at")
+  updated_at     DateTime        @updatedAt @map("updated_at")
+  repository     Repository      @relation("RepositoryPrompts", fields: [repository_id], references: [id])
+  versions       PromptVersion[] @relation("PromptVersions")
+  prompt_runs    PromptRun[]     @relation("PromptRuns")
+  merge_requests MergeRequest[]  @relation("PromptMergeRequests")
+
+  @@map("prompts")
+}
+
+model PromptVersion {
+  id             String      @id @default(uuid())
+  prompt_id      String      @map("prompt_id")
+  content        String      @map("content_snapshot")
+  metadata_json  Json?       @map("metadata_json")
+  diff_snapshot  String?     @map("diff_snapshot")
+  commit_message String?     @map("commit_message")
+  author_id      String?     @map("author_id")
+  version_number Int         @map("version_number")
+  created_at     DateTime    @default(now()) @map("created_at")
+
+  prompt      Prompt      @relation("PromptVersions", fields: [prompt_id], references: [id])
+  author      Account?    @relation("VersionAuthor", fields: [author_id], references: [id])
+  prompt_runs PromptRun[] @relation("VersionRuns")
+
+  @@map("prompt_versions")
+}
+
+model MergeRequest {
+  id                   String    @id @default(uuid())
+  prompt_id            String    @map("prompt_id")
+  description          String
+  merged_at            DateTime? @map("merged_at")
+  content              String    @map("content_snapshot")
+  metadata_json        Json?     @map("metadata_json")
+  status               String    @default("OPEN") // OPEN, REJECTED, MERGED
+  created_by           String    @map("created_by")
+  resulting_version_id String?   @map("resulting_version_id") // Tracks created PromptVersion after merge
+  created_at           DateTime  @default(now()) @map("created_at")
+  updated_at           DateTime  @updatedAt @map("updated_at")
+
+  creator Account @relation("MergeRequestCreator", fields: [created_by], references: [id])
+  prompt  Prompt  @relation("PromptMergeRequests", fields: [prompt_id], references: [id])
+
+  @@map("merge_requests")
+}
+
+enum RunType {
+  PLAYGROUND
+  VERSIONED
+}
+
+model PromptRun {
+  id                 String       @id @default(uuid())
+  prompt_id          String?      @map("prompt_id") // Optional - for standalone playground runs
+  prompt_version_id  String?      @map("prompt_version_id") // Optional - links to specific version for VERSIONED runs
+  user_id            String?      @map("user_id")
+  model              String
+  input_variables    Json?        @map("input_variables")
+  prompt_content     String       @default("") @map("prompt_content") // The actual prompt text that was executed
+  output             String?
+  success            Boolean      @default(true)
+  error_message      String?      @map("error_message")
+  metadata           Json? // Parameters & metrics
+  run_type           RunType      @default(PLAYGROUND) @map("run_type") // PLAYGROUND or VERSIONED
+  created_at         DateTime     @default(now()) @map("created_at")
+
+  prompt         Prompt?        @relation("PromptRuns", fields: [prompt_id], references: [id])
+  prompt_version PromptVersion? @relation("VersionRuns", fields: [prompt_version_id], references: [id])
+  user           Account?       @relation("RunUser", fields: [user_id], references: [id])
+
+  @@map("prompt_runs")
+}
+
+model RepoCollaborator {
+  id         String     @id @default(uuid())
+  repo_id    String     @map("repo_id")
+  user_id    String     @map("user_id")
+  role       String
+  created_at DateTime   @default(now()) @map("created_at")
+  updated_at DateTime   @updatedAt @map("updated_at")
+  repository Repository @relation("RepositoryCollaborators", fields: [repo_id], references: [id])
+  user       Account    @relation("UserCollaborations", fields: [user_id], references: [id])
+
+  @@map("repo_collaborators")
+}
+
+model Star {
+  id         String     @id @default(uuid())
+  repo_id    String     @map("repo_id")
+  user_id    String     @map("user_id")
+  created_at DateTime   @default(now()) @map("created_at")
+  updated_at DateTime   @updatedAt @map("updated_at")
+  repository Repository @relation("RepositoryStars", fields: [repo_id], references: [id])
+  user       Account    @relation("UserStars", fields: [user_id], references: [id])
+
+  @@map("stars")
+}
+
+model OrgMembership {
+  id           String       @id @default(uuid())
+  org_id       String       @map("org_id")
+  user_id      String       @map("user_id")
+  role         String
+  created_at   DateTime     @default(now()) @map("created_at")
+  updated_at   DateTime     @updatedAt @map("updated_at")
+  organization Organization @relation("OrgMemberships", fields: [org_id], references: [id])
+  user         Account      @relation("UserMemberships", fields: [user_id], references: [id])
+
+  @@map("org_memberships")
+}

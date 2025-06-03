@@ -1,0 +1,5 @@
+{
+  "version": "0.3.14-fixed",
+  "description": "Initial database setup with all tables",
+  "tags": ["migration", "initial"]
+} 
