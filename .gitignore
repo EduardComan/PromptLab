@@ -55,3 +55,5 @@ postgres-data/
 
 # Markdown
 *.md
+
+vercel.json
